@@ -1,0 +1,107 @@
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+  text-align: center;
+}
+
+/* General box styles for chat and prompts */
+.interaction-box, .prompt-box {
+  flex-grow: 1;
+  height: 400px;
+  overflow-y: auto;
+  background-color: #f8f9fa;
+  padding: 15px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+}
+
+/* Message bubble styles */
+.message-bubble {
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+/* AI message styling */
+.ai-message {
+  background-color: #e9f5ff;
+  color: #007bff;
+}
+
+/* User message styling */
+.user-message {
+  background-color: #dff0d8;
+  color: #3c763d;
+}
+
+/* Ensure full height layout */
+html, body, #root, .container-fluid {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Use flexbox to manage layout */
+.container-fluid {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Flex-grow to allow the interaction box to expand dynamically */
+.interaction-box, .prompt-box {
+  max-height: 50vh;
+  overflow-y: auto;
+  background-color: #f8f9fa;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+/* Adjust the input container to stay fixed at the bottom */
+.input-container {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background-color: #fff;
+  border-top: 1px solid #ccc;
+  width: 100%;
+}
+
+textarea {
+  flex-grow: 1;
+  padding: 10px;
+  margin-right: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #28a745;
+  border: none;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* Code formatting */
+pre {
+  background-color: #f5f5f5;
+  padding: 10px;
+  border-radius: 5px;
+  overflow-x: auto;
+}
+
+code {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 14px;
+}
