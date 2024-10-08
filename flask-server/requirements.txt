@@ -6,8 +6,9 @@ langchain-google-genai  # LangChain integration for Google's Generative AI
 flask  # Web framework for building APIs
 flask-cors  # CORS support for Flask to handle cross-origin requests
 langchain-community  # Additional document loaders and integrations for LangChain
-transformers  # Hugging Face Transformers library for language models
-sentence-transformers  # For pre-trained sentence embeddings
-faiss-cpu  # FAISS library for vector similarity search
 langchain-core
-langchain-huggingface
+
+# Additional libraries
+sentence-transformers
+scikit-learn
+numpy
