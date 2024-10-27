@@ -25,6 +25,12 @@ function TutorChat() {
         file_name: "topic_material.txt", // Adjust the file name if necessary
       });
 
+      console.log({
+        subject: selectedSubject,
+        topic: selectedTopic,
+        file_name: "topic_material.txt", // Adjust the file name if necessary
+      })
+
       const aiResponse = response.data.response;
       const llmPrompt = response.data.prompt; // Extract the prompt sent to the LLM
 
