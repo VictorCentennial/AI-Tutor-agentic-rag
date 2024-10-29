@@ -13,6 +13,7 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend }) {
     if (interactionBoxRef.current) {
       interactionBoxRef.current.scrollTop = interactionBoxRef.current.scrollHeight;
     }
+    console.log(`aiMessages: ${aiMessages}`);
   }, [aiMessages]);
 
   const handleSendMessage = () => {
@@ -29,10 +30,11 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend }) {
             {aiMessages.map((msg, index) => (
               <div
                 key={index}
-                className={`message-bubble ${msg.sender === "AI" ? "ai-message" : "user-message"}`}
+                className={`message-bubble ${msg.role === "ai" ? "ai-message" : "user-message"}`}
               >
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {msg.message}
+                  {/* {msg.message} */}
+                  {msg.content}
                 </ReactMarkdown>
               </div>
             ))}
