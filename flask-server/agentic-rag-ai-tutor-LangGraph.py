@@ -95,8 +95,11 @@ def start_tutoring():
 
     response = aiTutorAgent.graph.invoke(initial_input, thread)
     response_json = messages_to_json(response["messages"])
+    state = aiTutorAgent.graph.get_state(thread)
 
-    return jsonify({"messages": response_json, "thread_id": thread_id})
+    return jsonify(
+        {"messages": response_json, "thread_id": thread_id}
+    )  # , "state": state})
 
 
 # API endpoint to handle student responses and continue the session
@@ -113,8 +116,11 @@ def continue_tutoring():
 
     response = aiTutorAgent.graph.invoke(None, thread)
     response_json = messages_to_json(response["messages"])
+    state = aiTutorAgent.graph.get_state(thread)
 
-    return jsonify({"messages": response_json, "thread_id": thread_id})
+    return jsonify(
+        {"messages": response_json, "thread_id": thread_id}
+    )  # , "state": state})
 
 
 # Run the Flask app
