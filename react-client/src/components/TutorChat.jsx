@@ -39,8 +39,10 @@ function TutorChat() {
       setAiMessages(messages);
 
 
-      // const state = response.data.state;
-      // setLlmPrompt(state);
+      const state = response.data.state;
+      setLlmPrompt(state);
+
+      console.log(`state: ${state}`);
 
       //setAiMessages([{ sender: aiResponse.role, message: aiResponse.content }]);
 
@@ -61,12 +63,15 @@ function TutorChat() {
       });
       //const aiResponse = response.data.response;
       const messages = response.data.messages;
-      const llmPrompt = response.data.prompt || ""; // Extract the prompt sent to the LLM if available
+      //const llmPrompt = response.data.prompt || ""; // Extract the prompt sent to the LLM if available
+      //const llmPrompt = response.data.state;
 
       setAiMessages(messages);
 
-      // const state = response.data.state;
-      // setLlmPrompt(state);
+      const state = response.data.state;
+      setLlmPrompt(state);
+
+      console.log(`state: ${state}`);
 
       // setAiMessages((prevMessages) => [
       //   messages.map((message) => ({
