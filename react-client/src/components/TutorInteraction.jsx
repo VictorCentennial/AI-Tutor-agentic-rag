@@ -16,6 +16,23 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend }) {
     console.log(`aiMessages: ${aiMessages}`);
   }, [aiMessages]);
 
+  // For pressing Shift + Enter to send message
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      if (event.key === 'Enter' && event.shiftKey) {
+        handleSendMessage();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+
+    // Cleanup listener on component unmount
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [userMessage]);
+
+
   const handleSendMessage = () => {
     onSend(userMessage); // Pass the user's message to parent
     setUserMessage("");  // Clear the input after sending
