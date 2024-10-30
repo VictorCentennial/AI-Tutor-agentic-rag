@@ -6,6 +6,7 @@ import re
 import os
 import json
 from datetime import datetime
+import uuid
 
 # from langchain.document_loaders import TextLoader
 from langchain_community.document_loaders import TextLoader
@@ -21,10 +22,7 @@ CORS(app)  # Enable CORS for all routes
 # Set up logging for debugging
 logging.basicConfig(level=logging.DEBUG)
 
-# TODO: Use UUID for thread ID, and list of active threads
-thread_id = 0
-# TODO:create unique id for each thread
-thread = {"configurable": {"thread_id": str(thread_id)}}
+thread_ids = []
 
 
 # Function to load document content using LangChain
@@ -124,9 +122,16 @@ def start_tutoring():
         "duration_minutes": 30,
     }
 
+    thread_id = str(uuid.uuid4())
+    thread_ids.append(thread_id)
+    thread = {"configurable": {"thread_id": str(thread_id)}}
+
     response = aiTutorAgent.graph.invoke(initial_input, thread)
     response_json = messages_to_json(response["messages"])
     state = aiTutorAgent.graph.get_state(thread)
+
+    # print(f"State: {state_to_json(state)}")
+    # print(f"jsonify: {jsonify( {"state": state_to_json(state)})}")
 
     return jsonify(
         {
