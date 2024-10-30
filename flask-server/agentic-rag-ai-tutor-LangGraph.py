@@ -68,6 +68,37 @@ def messages_to_json(messages):
     return messages_json  # json.dumps(messages_json)
 
 
+def state_to_json(state_snapshot):
+    """
+    Parse the state snapshot to extract the necessary data and convert it to a JSON format.
+    """
+
+    def make_json_serializable(obj):
+        if isinstance(obj, dict):
+            return {k: make_json_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [make_json_serializable(element) for element in obj]
+        elif isinstance(obj, tuple):
+            return [make_json_serializable(element) for element in obj]
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        elif isinstance(obj, AIMessage):
+            return {"role": "ai", "content": obj.content}
+        elif isinstance(obj, HumanMessage):
+            return {"role": "human", "content": obj.content}
+        elif hasattr(obj, "__dict__"):
+            return make_json_serializable(vars(obj))
+        elif obj is None:
+            return None
+        else:
+            return obj
+
+            # Use the recursive function to process the entire state snapshot
+
+    state_json = make_json_serializable(state_snapshot)
+    return state_json
+
+
 @app.route("/start-tutoring", methods=["POST"])
 def start_tutoring():
     data = request.json
@@ -98,8 +129,12 @@ def start_tutoring():
     state = aiTutorAgent.graph.get_state(thread)
 
     return jsonify(
-        {"messages": response_json, "thread_id": thread_id}
-    )  # , "state": state})
+        {
+            "messages": response_json,
+            "thread_id": thread_id,
+            "state": state_to_json(state),
+        }
+    )
 
 
 # API endpoint to handle student responses and continue the session
@@ -118,9 +153,16 @@ def continue_tutoring():
     response_json = messages_to_json(response["messages"])
     state = aiTutorAgent.graph.get_state(thread)
 
+    # print(f"State: {state_to_json(state)}")
+    print(f"jsonify: {jsonify( {"state": state_to_json(state)})}")
+
     return jsonify(
-        {"messages": response_json, "thread_id": thread_id}
-    )  # , "state": state})
+        {
+            "messages": response_json,
+            "thread_id": thread_id,
+            "state": state_to_json(state),
+        }
+    )
 
 
 # Run the Flask app
