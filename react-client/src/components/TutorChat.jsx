@@ -12,17 +12,20 @@ function TutorChat() {
   const [isTutoringStarted, setIsTutoringStarted] = useState(false);
   const [subject, setSubject] = useState(""); // State variable for subject
   const [topic, setTopic] = useState("");     // State variable for topic
+  const [duration, setDuration] = useState(30); // State variable for duration
   const [threadId, setThreadId] = useState(""); // State variable for threadId
   // Function to handle the start of the tutoring session
-  const handleStartTutoring = async (selectedSubject, selectedTopic) => {
+  const handleStartTutoring = async (selectedSubject, selectedTopic, selectedDuration) => {
     try {
       setSubject(selectedSubject); // Store the selected subject in state
       setTopic(selectedTopic);     // Store the selected topic in state
+      setDuration(selectedDuration); // Store the selected duration in state
       setAiMessages([]);           // Reset aiMessages to clear any previous messages
 
       const response = await axios.post("api/start-tutoring", {
         subject: selectedSubject,
         topic: selectedTopic,
+        duration: selectedDuration,
         file_name: "topic_material.txt", // Adjust the file name if necessary
       });
 
