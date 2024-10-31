@@ -102,6 +102,7 @@ def start_tutoring():
     data = request.json
     subject = data.get("subject", "Java")
     topic = data.get("topic", "Polymorphism in Java")
+    duration = data.get("duration", 30)
     file_name = data.get("file_name", "topic_material.txt")
     file_path = os.path.join("data", file_name)
 
@@ -119,7 +120,7 @@ def start_tutoring():
         "messages": [],
         "answer_trials": 0,
         "start_time": datetime.now(),
-        "duration_minutes": 30,
+        "duration_minutes": duration,
     }
 
     thread_id = str(uuid.uuid4())
