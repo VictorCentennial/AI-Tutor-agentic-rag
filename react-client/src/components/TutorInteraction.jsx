@@ -5,13 +5,54 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm"; // Optional: GitHub-flavored markdown
 import { JsonView } from 'react-json-view-lite';
 import 'react-json-view-lite/dist/index.css'; // Import styles
-
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import MermaidDiagram from './MermaidDiagram';
+// import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+// import { coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 function TutorInteraction({ aiMessages, llmPrompt, onSend }) {
   const [userMessage, setUserMessage] = React.useState("");
   const interactionBoxRef = useRef(null); // Reference to interaction box for smooth scrolling
+
+  const [graphData, setGraphData] = React.useState(null);
+
+  // Fetch graph data
+  useEffect(() => {
+    const fetchGraphData = async () => {
+      try {
+        const response = await fetch('/api/get-graph');
+        const data = await response.json();
+        setGraphData(data.graph);
+      } catch (error) {
+        console.error('Error fetching graph data:', error);
+      }
+    };
+
+    fetchGraphData();
+  }, []);
+
+  // Convert graph data to Mermaid syntax
+  const getMermaidDefinition = (graph) => {
+    let mermaidDef = 'graph TD;\n';
+
+    // Add nodes
+    Object.entries(graph.nodes).forEach(([id, node]) => {
+      mermaidDef += `${id}["${node.name}"];\n`;
+    });
+
+    // Add edges
+    graph.edges.forEach(edge => {
+      if (edge.conditional) {
+        // Conditional edges with labels
+        mermaidDef += `${edge.source}-->|${edge.data}|${edge.target};\n`;
+      } else {
+        // Regular edges
+        mermaidDef += `${edge.source}-->${edge.target};\n`;
+      }
+    });
+
+    return mermaidDef;
+  };
+
 
   // Scroll to bottom when a new message is added
   useEffect(() => {
@@ -65,6 +106,27 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend }) {
 
         <Col xs={12} md={6} className="mb-3">
           <div className="prompt-box">
+            <h5>LangGraph Workflow</h5>
+            {graphData && (
+              // <div
+              //   className="mermaid-container"
+              //   style={{
+              //     background: 'white',
+              //     padding: '20px',
+              //     borderRadius: '8px',
+              //     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              //     marginBottom: '20px',
+              //     maxHeight: '600px',
+              //     overflowY: 'auto'
+              //   }}
+              // >
+              //   <pre className="mermaid">
+              //     {getMermaidDefinition(graphData)}
+              //   </pre>
+              // </div>
+              <MermaidDiagram definition={getMermaidDefinition(graphData)} />
+            )
+            }
             {/* <h5>LLM Prompt (Debugging)</h5>
             <Form.Control
               as="textarea"
