@@ -45,6 +45,26 @@ def load_document_content(file_path):
         return f"Error loading document content: {e}"
 
 
+def get_graph_data(graph):
+    # Convert the graph to a dictionary structure
+    graph_data = {
+        "nodes": {
+            node_id: {"name": node.name, "metadata": node.metadata}
+            for node_id, node in graph.nodes.items()
+        },
+        "edges": [
+            {
+                "source": edge.source,
+                "target": edge.target,
+                "data": edge.data,
+                "conditional": edge.conditional,
+            }
+            for edge in graph.edges
+        ],
+    }
+    return graph_data
+
+
 def messages_to_json(messages):
     """
     Convert a list of LangChain messages to JSON format.
@@ -169,6 +189,13 @@ def continue_tutoring():
             "state": state_to_json(state),
         }
     )
+
+
+@app.route("/get-graph", methods=["GET"])
+def get_graph_image():
+    graph = aiTutorAgent.graph.get_graph()
+    graph_data = get_graph_data(graph)
+    return jsonify({"graph": graph_data})
 
 
 # Run the Flask app
