@@ -30,6 +30,7 @@ class AgentState(TypedDict):
     answer_trials: int
     start_time: datetime
     duration_minutes: int
+    tutor_question: str
 
 
 class AiTutorAgent:
@@ -166,13 +167,14 @@ class AiTutorAgent:
             **Content Summary of the Topic**:
             {summary}
         """
-
+        ##TODO: extract the equation out to consider directly
         self.QUESTION_ANSWERING_PROMPT = """
         
             You are an AI Tutor tasked with assisting a student based on a given question or selected topic and context.
 
             Instructions:
             1. **Answer the Question**: Provide a detailed answer to the question using the provided context. Incorporate examples to enhance understanding.
+                If possible, provide coding examples or diagrams to help the student understand the concept.
 
             2. **Use Own Knowledge if Necessary**: If the context lacks the information needed, draw upon your own knowledge to answer comprehensively.
 
@@ -196,18 +198,21 @@ class AiTutorAgent:
 
             **Instructions**:
 
-            - **Consider the initial question** you asked the student, which appears at the end of the first conversation.
-            - **Evaluate the student's latest answer** to determine if it correctly answers the initial question and demonstrates understanding of the concept.
+            - Consider the AI question and student's answer, evaluate e if it correctly answers the initial question and demonstrates understanding of the concept.
             - **Response**:
-            - If the student's latest answer is correct and shows understanding, respond with **"Correct"**.
-            - If the student's latest answer is incorrect or shows misunderstanding, respond with **"Wrong"**.
-            - **Note**: Only consider the latest answer for your evaluation. Provide a one-word response ("Correct" or "Wrong") without any additional hints or feedback.
+            - If the student's answer is correct and shows understanding, respond with **"Correct"**.
+            - If the student's answer is incorrect or shows misunderstanding, respond with **"Wrong"**.
+            - Provide a one-word response ("Correct" or "Wrong") without any additional hints or feedback.
 
             ---
 
-            **Question and Answer**:
+            **AI Question**:
 
-            {question_answer_context}
+            {question}
+            
+            **Student's Answer**:
+
+            {answer}
         """
 
         self.HINTS_PROMPT = """
@@ -376,15 +381,28 @@ class AiTutorAgent:
         }
 
     def llm_answer_question(self, state: AgentState):
-        # print("Answer the question: ", state["messages"][-1].content)
-        question = state["messages"][-1].content
-        response = self.llm.invoke(
-            self.QUESTION_ANSWERING_PROMPT.format(
-                question=question, context=state["context"]
+        while True:
+            question = state["messages"][-1].content
+            response = self.llm.invoke(
+                self.QUESTION_ANSWERING_PROMPT.format(
+                    question=question, context=state["context"]
+                )
             )
-        )
-        result = response.content
-        return {"messages": [AIMessage(content=result)], "answer_trials": 0}
+            result = response.content
+            result_parts = result.split("Question")
+            if len(result_parts) > 1:
+                tutor_question = result_parts[-1].strip()
+            else:
+                tutor_question = (
+                    None  # or handle the case where "Question" is not found
+                )
+            if tutor_question:
+                break
+        return {
+            "messages": [AIMessage(content=result)],
+            "answer_trials": 0,
+            "tutor_question": tutor_question,
+        }
 
     def student_answer_question(self, state: AgentState):
         # print(state["messages"][-1].content)
@@ -415,17 +433,15 @@ class AiTutorAgent:
         if answer_trials >= max_trials:
             return "Stop"
 
-        question_answer_context = self.get_question_answer_context(state)
-        context = state["context"]
+        answer = state["messages"][-1].content
+        question = state["tutor_question"]
 
         response = self.llm.invoke(
-            self.CHECK_QUESTION_ANSWER_PROMPT.format(
-                question_answer_context=question_answer_context
-            )
+            self.CHECK_QUESTION_ANSWER_PROMPT.format(question=question, answer=answer)
         )
 
         result = response.content.strip()
-        return "Correct" if result.startswith("Correct") else "Wrong"
+        return "Correct" if result.lower().startswith("correct") else "Wrong"
         # need to add one trials for answer_trials
 
     def tell_student_answer_is_correct(self, state: AgentState):
