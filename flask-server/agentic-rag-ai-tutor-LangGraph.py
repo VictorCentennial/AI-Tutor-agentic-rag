@@ -141,6 +141,7 @@ def start_tutoring():
         "answer_trials": 0,
         "start_time": datetime.now(),
         "duration_minutes": duration,
+        "tutor_question": "",
     }
 
     thread_id = str(uuid.uuid4())
