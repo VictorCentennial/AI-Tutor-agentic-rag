@@ -1,8 +1,8 @@
 // TutorStart component for selecting subject and topic to start tutoring
 import React, { useState } from "react";
-import { Row, Col, Form, Button } from "react-bootstrap";
+import { Row, Col, Form, Button, Spinner } from "react-bootstrap";
 
-function TutorStart({ onStartTutoring }) {
+function TutorStart({ onStartTutoring, isLoading }) {
   const [subject, setSubject] = useState("Java");
   const [topic, setTopic] = useState("Polymorphism in Java");
   const [duration, setDuration] = useState(30);
@@ -71,8 +71,27 @@ function TutorStart({ onStartTutoring }) {
       </Col>
 
       <Col className="text-center">
-        <Button variant="primary" onClick={handleStart} className="w-100">
-          Start Tutoring
+        <Button
+          variant="primary"
+          onClick={handleStart}
+          className="w-100"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <Spinner
+                as="span"
+                animation="border"
+                size="sm"
+                role="status"
+                aria-hidden="true"
+                className="me-2"
+              />
+              Loading...
+            </>
+          ) : (
+            'Start Tutoring'
+          )}
         </Button>
       </Col>
     </Row>
