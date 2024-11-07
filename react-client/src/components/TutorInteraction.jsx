@@ -188,10 +188,11 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading }) {
             value={userMessage}
             onChange={(e) => setUserMessage(e.target.value)}
             placeholder="Your message..."
+            disabled={isLoading}
           />
         </Col>
         <Col xs={12} md={2} className="text-center">
-          <Button variant="success" onClick={handleSendMessage} className="w-100">
+          <Button variant="success" onClick={handleSendMessage} className="w-100" disabled={isLoading}>
             Send
           </Button>
         </Col>
