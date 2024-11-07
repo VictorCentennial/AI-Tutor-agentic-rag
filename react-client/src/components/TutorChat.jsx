@@ -1,33 +1,36 @@
 // TutorChat.jsx
 import React, { useState } from "react";
-import { Container } from "react-bootstrap";
+import { Container, Spinner } from "react-bootstrap";
 import TutorStart from "./TutorStart";
 import TutorInteraction from "./TutorInteraction";
 import axios from "axios";
 import "../App.css"; // Adjust the import path if necessary
 
 function TutorChat() {
+  const [isLoading, setIsLoading] = useState(false)
   const [aiMessages, setAiMessages] = useState([]);
   const [llmPrompt, setLlmPrompt] = useState(""); // To display the LLM prompt for debugging
   const [isTutoringStarted, setIsTutoringStarted] = useState(false);
-  const [subject, setSubject] = useState(""); // State variable for subject
-  const [topic, setTopic] = useState("");     // State variable for topic
-  const [duration, setDuration] = useState(30); // State variable for duration
+  // const [subject, setSubject] = useState(""); // State variable for subject
+  // const [topic, setTopic] = useState("");     // State variable for topic
+  // const [duration, setDuration] = useState(30); // State variable for duration
   const [threadId, setThreadId] = useState(""); // State variable for threadId
   // Function to handle the start of the tutoring session
   const handleStartTutoring = async (selectedSubject, selectedTopic, selectedDuration) => {
     try {
-      setSubject(selectedSubject); // Store the selected subject in state
-      setTopic(selectedTopic);     // Store the selected topic in state
-      setDuration(selectedDuration); // Store the selected duration in state
-      setAiMessages([]);           // Reset aiMessages to clear any previous messages
-
+      // setSubject(selectedSubject); // Store the selected subject in state
+      // setTopic(selectedTopic);     // Store the selected topic in state
+      // setDuration(selectedDuration); // Store the selected duration in state
+      // setAiMessages([]);
+      // Reset aiMessages to clear any previous messages
+      setIsLoading(true);
       const response = await axios.post("api/start-tutoring", {
         subject: selectedSubject,
         topic: selectedTopic,
         duration: selectedDuration,
         file_name: "topic_material.txt", // Adjust the file name if necessary
       });
+      setIsLoading(false);
 
       // Debug logs
       console.log('Full response:', response);
@@ -50,7 +53,6 @@ function TutorChat() {
       //setAiMessages([{ sender: aiResponse.role, message: aiResponse.content }]);
 
       //setAiMessages([{ sender: "AI", message: aiResponse }]);
-      //TODO: Display debug information in the LLM Prompt box
       //setLlmPrompt(llmPrompt); // Display the prompt in the LLM Prompt box
       setIsTutoringStarted(true); // Mark that the tutoring session has started
     } catch (error) {
@@ -60,6 +62,9 @@ function TutorChat() {
 
   const handleSend = async (userMessage) => {
     try {
+
+      setAiMessages([...aiMessages, { role: "User", content: userMessage }]);
+      setIsLoading(true);
       const response = await axios.post("api/continue-tutoring", {
         student_response: userMessage,
         thread_id: threadId,
@@ -68,7 +73,8 @@ function TutorChat() {
       const messages = response.data.messages;
       //const llmPrompt = response.data.prompt || ""; // Extract the prompt sent to the LLM if available
       //const llmPrompt = response.data.state;
-
+      // console.log("messages:", messages);
+      setIsLoading(false);
       setAiMessages(messages);
 
       const state = response.data.state;
@@ -94,12 +100,13 @@ function TutorChat() {
   return (
     <Container fluid className="mt-4">
       {!isTutoringStarted ? (
-        <TutorStart onStartTutoring={handleStartTutoring} />
+        <TutorStart onStartTutoring={handleStartTutoring} isLoading={isLoading} />
       ) : (
         <TutorInteraction
           aiMessages={aiMessages}
           llmPrompt={llmPrompt}
           onSend={handleSend}
+          isLoading={isLoading}
         />
       )}
     </Container>
