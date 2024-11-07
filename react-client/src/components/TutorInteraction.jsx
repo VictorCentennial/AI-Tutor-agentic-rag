@@ -1,6 +1,6 @@
 // TutorInteraction component for displaying user and AI interaction messages
 import React, { useEffect, useRef } from "react";
-import { Row, Col, Form, Button } from "react-bootstrap";
+import { Row, Col, Form, Button, Spinner } from "react-bootstrap";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm"; // Optional: GitHub-flavored markdown
 import { JsonView } from 'react-json-view-lite';
@@ -9,7 +9,7 @@ import MermaidDiagram from './MermaidDiagram';
 // import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 // import { coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-function TutorInteraction({ aiMessages, llmPrompt, onSend }) {
+function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading }) {
   const [userMessage, setUserMessage] = React.useState("");
   const interactionBoxRef = useRef(null); // Reference to interaction box for smooth scrolling
 
@@ -101,6 +101,20 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend }) {
                 </ReactMarkdown>
               </div>
             ))}
+            {isLoading && (
+              <div className="d-flex justify-content-center mt-3">
+                <Spinner
+                  animation="border"
+                  role="status"
+                  variant="primary"
+                  style={{
+                    width: '2rem',
+                    height: '2rem',
+                    borderWidth: '0.2em'
+                  }}
+                />
+              </div>
+            )}
           </div>
         </Col>
 
