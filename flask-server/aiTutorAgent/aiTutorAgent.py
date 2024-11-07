@@ -150,7 +150,7 @@ class AiTutorAgent:
 
             1. **Evaluate the Student's Question**:
             - Determine whether the student's question is related to the topic as described in the content summary.
-            - It is acceptable if the question is not explicitly mentioned in the content summary, as long as it pertains to the overall subject.
+            - It is acceptable if the question is not explicitly mentioned in the content summary, as long as it pertains to the overall subject and summary.
 
             2. **Response Guidelines**:
             - If the student's question is related to the topic, respond with **"Pass"**.
@@ -163,6 +163,9 @@ class AiTutorAgent:
 
             **Student Question**:
             {question}
+            
+            **Subject**:
+            {subject}
 
             **Content Summary of the Topic**:
             {summary}
@@ -184,8 +187,9 @@ class AiTutorAgent:
             
             5. **Output Formatting**:
             - Present your **answer to student's question** and the **testing question** to the student in clear, student-friendly language.
-            - Do **not** include  answer to the testing question in your response to the student.
-
+            - 
+            **Important**: Do **NOT** include answer to the testing question in your response to the student.
+            Remember, No Answer!
                 ---
 
             **Student's Question**: {question}
@@ -254,6 +258,7 @@ class AiTutorAgent:
 
             2. **Create a Summary**:
             - Write a concise and clear summary of the session.
+            - Around 3-4 sentences.
             - Focus on the main topics covered and the key concepts the student has learned or improved upon.
             - Highlight any progress the student made, including overcoming misconceptions or mastering difficult concepts.
      
@@ -362,6 +367,7 @@ class AiTutorAgent:
             return "TimeOut"
         question = state["messages"][-1].content
         summary = state["summary"]
+        subject = state["subject"]
         response = self.llm.invoke(
             self.QUESTION_GUARDING_PROMPT.format(
                 question=question, summary=summary, subject=subject
@@ -412,10 +418,12 @@ class AiTutorAgent:
 
     # helper function
     # TODO: use trim_message library
-    def get_question_answer_context(self, state: AgentState):
+    def get_question_answer_context(self, state: AgentState, additional_messages=0):
         answer_trials = state["answer_trials"]
         number_of_related_messages = (answer_trials + 1) * 2
-        messages = state["messages"][(-1 * number_of_related_messages) :]
+        messages = state["messages"][
+            (-1 * number_of_related_messages) - additional_messages :
+        ]
 
         # Convert messages into conversation format
         conversation = []
@@ -472,7 +480,9 @@ class AiTutorAgent:
         return {"messages": [AIMessage(content=result)]}
 
     def intermediate_summary(self, state: AgentState):
-        question_answer_context = self.get_question_answer_context(state)
+        question_answer_context = self.get_question_answer_context(
+            state, additional_messages=1
+        )
         response = self.llm.invoke(
             self.INTERMEDIATE_SUMMARY_PROMPT.format(
                 question_answer_context=question_answer_context
