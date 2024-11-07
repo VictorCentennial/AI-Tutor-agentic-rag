@@ -1,6 +1,13 @@
 // TutorStart component for selecting subject and topic to start tutoring
-import React, { useState } from "react";
+import { useState } from "react";
 import { Row, Col, Form, Button, Spinner } from "react-bootstrap";
+import PropTypes from 'prop-types';
+
+TutorStart.propTypes = {
+  onStartTutoring: PropTypes.func.isRequired,
+  isLoading: PropTypes.bool.isRequired,
+};
+
 
 function TutorStart({ onStartTutoring, isLoading }) {
   const [subject, setSubject] = useState("Java");
@@ -97,5 +104,6 @@ function TutorStart({ onStartTutoring, isLoading }) {
     </Row>
   );
 }
+
 
 export default TutorStart;

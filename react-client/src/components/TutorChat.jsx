@@ -1,6 +1,6 @@
 // TutorChat.jsx
-import React, { useState } from "react";
-import { Container, Spinner } from "react-bootstrap";
+import { useState } from "react";
+import { Container } from "react-bootstrap";
 import TutorStart from "./TutorStart";
 import TutorInteraction from "./TutorInteraction";
 import axios from "axios";
@@ -32,16 +32,14 @@ function TutorChat() {
       });
       setIsLoading(false);
 
-      // Debug logs
-      console.log('Full response:', response);
-      console.log('Response data:', response.data);
-      console.log('response.data.messages:', response.data.messages);
+      // // Debug logs
+      // console.log('Full response:', response);
+      // console.log('Response data:', response.data);
+      // console.log('response.data.messages:', response.data.messages);
 
       const messages = response.data.messages;
       setThreadId(response.data.thread_id);
-
       //const llmPrompt = response.data.prompt; // Extract the prompt sent to the LLM
-
       setAiMessages(messages);
 
 

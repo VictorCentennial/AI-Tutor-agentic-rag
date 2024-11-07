@@ -8,6 +8,17 @@ import 'react-json-view-lite/dist/index.css'; // Import styles
 import MermaidDiagram from './MermaidDiagram';
 // import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 // import { coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import PropTypes from 'prop-types';
+
+TutorInteraction.propTypes = {
+  aiMessages: PropTypes.arrayOf(PropTypes.shape({
+    role: PropTypes.string.isRequired,
+    content: PropTypes.string.isRequired
+  })).isRequired,
+  llmPrompt: PropTypes.string.isRequired,
+  onSend: PropTypes.func.isRequired,
+  isLoading: PropTypes.bool.isRequired
+};
 
 function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading }) {
   const [userMessage, setUserMessage] = React.useState("");
