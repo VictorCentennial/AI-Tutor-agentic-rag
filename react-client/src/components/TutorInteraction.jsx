@@ -17,13 +17,13 @@ TutorInteraction.propTypes = {
   })).isRequired,
   llmPrompt: PropTypes.string.isRequired,
   onSend: PropTypes.func.isRequired,
-  isLoading: PropTypes.bool.isRequired
+  isLoading: PropTypes.bool.isRequired,
+  nextState: PropTypes.string.isRequired
 };
 
-function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading }) {
+function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState }) {
   const [userMessage, setUserMessage] = React.useState("");
   const interactionBoxRef = useRef(null); // Reference to interaction box for smooth scrolling
-
   const [graphData, setGraphData] = React.useState(null);
 
   // Fetch graph data
@@ -33,6 +33,7 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading }) {
         const response = await fetch('/api/get-graph');
         const data = await response.json();
         setGraphData(data.graph);
+
       } catch (error) {
         console.error('Error fetching graph data:', error);
       }
@@ -94,6 +95,8 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading }) {
     onSend(userMessage); // Pass the user's message to parent
     setUserMessage("");  // Clear the input after sending
   };
+
+  console.log(`nextState: ${nextState}`);
 
   return (
     <div className="flex-grow-1">
@@ -181,6 +184,21 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading }) {
         </Col>
       </Row>
 
+      <Row className="mt-4">
+        <Col xs={12} className="text-center">
+          {!nextState && (
+            <Button
+              variant="primary"
+              onClick={() => window.location.reload()}
+              className="mb-3"
+            >
+              Start New Session
+            </Button>
+          )}
+        </Col>
+      </Row>
+
+
       <Row className="mt-4 input-container">
         <Col xs={12} md={10} className="mb-3">
           <Form.Control
@@ -188,7 +206,7 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading }) {
             value={userMessage}
             onChange={(e) => setUserMessage(e.target.value)}
             placeholder="Your message..."
-            disabled={isLoading}
+            disabled={isLoading || !nextState}
           />
         </Col>
         <Col xs={12} md={2} className="text-center">
