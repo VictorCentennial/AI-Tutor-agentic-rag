@@ -16,6 +16,8 @@ function TutorChat() {
   // const [duration, setDuration] = useState(30); // State variable for duration
   const [threadId, setThreadId] = useState(""); // State variable for threadId
   // Function to handle the start of the tutoring session
+  const [nextState, setNextState] = useState("");
+
   const handleStartTutoring = async (selectedSubject, selectedTopic, selectedDuration) => {
     try {
       // setSubject(selectedSubject); // Store the selected subject in state
@@ -45,6 +47,7 @@ function TutorChat() {
 
       const state = response.data.state;
       setLlmPrompt(state);
+      setNextState(response.data.next_state);
 
       console.log(`state: ${state}`);
 
@@ -68,17 +71,16 @@ function TutorChat() {
         thread_id: threadId,
       });
       //const aiResponse = response.data.response;
-      const messages = response.data.messages;
+      const { messages, state, next_state } = response.data;
       //const llmPrompt = response.data.prompt || ""; // Extract the prompt sent to the LLM if available
       //const llmPrompt = response.data.state;
       // console.log("messages:", messages);
       setIsLoading(false);
       setAiMessages(messages);
-
-      const state = response.data.state;
       setLlmPrompt(state);
-
       console.log(`state: ${state}`);
+      setNextState(next_state);
+
 
       // setAiMessages((prevMessages) => [
       //   messages.map((message) => ({
@@ -93,8 +95,7 @@ function TutorChat() {
     } catch (error) {
       console.error("Error continuing tutoring session:", error);
     }
-  };
-
+  }
   return (
     <Container fluid className="mt-4">
       {!isTutoringStarted ? (
@@ -105,6 +106,7 @@ function TutorChat() {
           llmPrompt={llmPrompt}
           onSend={handleSend}
           isLoading={isLoading}
+          nextState={nextState}
         />
       )}
     </Container>
