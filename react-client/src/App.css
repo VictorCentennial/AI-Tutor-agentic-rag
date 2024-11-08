@@ -6,7 +6,8 @@
 }
 
 /* General box styles for chat and prompts */
-.interaction-box, .prompt-box {
+.interaction-box,
+.prompt-box {
   flex-grow: 1;
   height: 400px;
   overflow-y: auto;
@@ -37,7 +38,10 @@
 }
 
 /* Ensure full height layout */
-html, body, #root, .container-fluid {
+html,
+body,
+#root,
+.container-fluid {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -51,7 +55,8 @@ html, body, #root, .container-fluid {
 }
 
 /* Flex-grow to allow the interaction box to expand dynamically */
-.interaction-box, .prompt-box {
+.interaction-box,
+.prompt-box {
   max-height: 50vh;
   overflow-y: auto;
   background-color: #f8f9fa;
