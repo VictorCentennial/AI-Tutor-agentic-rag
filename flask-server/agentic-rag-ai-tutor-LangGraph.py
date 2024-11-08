@@ -151,6 +151,7 @@ def start_tutoring():
     response = aiTutorAgent.graph.invoke(initial_input, thread)
     response_json = messages_to_json(response["messages"])
     state = aiTutorAgent.graph.get_state(thread)
+    next_state = state.next[0] if state.next else ""
 
     # print(f"State: {state_to_json(state)}")
     # print(f"jsonify: {jsonify( {"state": state_to_json(state)})}")
@@ -160,6 +161,7 @@ def start_tutoring():
             "messages": response_json,
             "thread_id": thread_id,
             "state": state_to_json(state),
+            "next_state": next_state,
         }
     )
 
@@ -179,15 +181,17 @@ def continue_tutoring():
     response = aiTutorAgent.graph.invoke(None, thread)
     response_json = messages_to_json(response["messages"])
     state = aiTutorAgent.graph.get_state(thread)
+    next_state = state.next[0] if state.next else ""
 
     # print(f"State: {state_to_json(state)}")
-    print(f"jsonify: {jsonify( {"state": state_to_json(state)})}")
-
+    # logging.info(f"jsonify: {jsonify( {"state": state_to_json(state)})}")
+    # logging.info(f"next_state: {next_state}")
     return jsonify(
         {
             "messages": response_json,
             "thread_id": thread_id,
             "state": state_to_json(state),
+            "next_state": next_state,
         }
     )
 
