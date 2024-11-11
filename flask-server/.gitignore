@@ -1,5 +1,6 @@
 #python virtual environment
 .venv/
+venv/
 
 #env files
 .env
@@ -14,3 +15,7 @@
 *.njsproj
 *.sln
 *.sw?
+
+# Python cache
+__pycache__/
+*.py[cod]

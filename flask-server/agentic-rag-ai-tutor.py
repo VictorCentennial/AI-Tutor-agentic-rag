@@ -167,6 +167,8 @@ def continue_tutoring():
     file_name = 'topic_material.txt'
     file_path = os.path.join("data", file_name)
     context = load_document_content(file_path)
+    
+    logging.debug(f"Continuous conversation on subject: {subject}, topic: {topic}: {student_response}")
 
     # Use MetaAgent to handle the flow of the session
     ai_response_content = meta_agent.delegate_task(student_response, context)

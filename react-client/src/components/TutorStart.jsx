@@ -1,10 +1,18 @@
 // TutorStart component for selecting subject and topic to start tutoring
-import React, { useState } from "react";
-import { Row, Col, Form, Button } from "react-bootstrap";
+import { useState } from "react";
+import { Row, Col, Form, Button, Spinner } from "react-bootstrap";
+import PropTypes from 'prop-types';
 
-function TutorStart({ onStartTutoring }) {
+TutorStart.propTypes = {
+  onStartTutoring: PropTypes.func.isRequired,
+  isLoading: PropTypes.bool.isRequired,
+};
+
+
+function TutorStart({ onStartTutoring, isLoading }) {
   const [subject, setSubject] = useState("Java");
   const [topic, setTopic] = useState("Polymorphism in Java");
+  const [duration, setDuration] = useState(30);
 
   const subjects = ["Java", "C#", "Python"];
   const topics = {
@@ -14,7 +22,7 @@ function TutorStart({ onStartTutoring }) {
   };
 
   const handleStart = () => {
-    onStartTutoring(subject, topic); // Pass subject and topic to parent
+    onStartTutoring(subject, topic, duration); // Pass subject and topic to parent
   };
 
   return (
@@ -38,7 +46,7 @@ function TutorStart({ onStartTutoring }) {
           </Form.Control>
         </Form.Group>
       </Col>
-
+      {/* 
       <Col xs={12} md={6} className="mb-3">
         <Form.Group controlId="topic-select">
           <Form.Label>Choose Topic</Form.Label>
@@ -54,15 +62,48 @@ function TutorStart({ onStartTutoring }) {
             ))}
           </Form.Control>
         </Form.Group>
+      </Col> */}
+      <Col xs={12} md={6} className="mb-3">
+        <Form.Group controlId="duration-input">
+          <Form.Label>Session Duration (minutes)</Form.Label>
+          <Form.Control
+            type="number"
+            min="15"
+            max="60"
+            step="15"
+            value={duration}
+            onChange={(e) => setDuration(parseInt(e.target.value))}
+          />
+        </Form.Group>
       </Col>
 
       <Col className="text-center">
-        <Button variant="primary" onClick={handleStart} className="w-100">
-          Start Tutoring
+        <Button
+          variant="primary"
+          onClick={handleStart}
+          className="w-100"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <Spinner
+                as="span"
+                animation="border"
+                size="sm"
+                role="status"
+                aria-hidden="true"
+                className="me-2"
+              />
+              Loading...
+            </>
+          ) : (
+            'Start Tutoring'
+          )}
         </Button>
       </Col>
     </Row>
   );
 }
+
 
 export default TutorStart;
