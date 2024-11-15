@@ -15,6 +15,8 @@ from langchain.schema import AIMessage, HumanMessage
 
 from aiTutorAgent import aiTutorAgent
 
+from rag import rag
+
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -123,19 +125,28 @@ def start_tutoring():
     subject = data.get("subject", "Java")
     topic = data.get("topic", "Polymorphism in Java")
     duration = data.get("duration", 30)
-    file_name = data.get("file_name", "topic_material.txt")
-    file_path = os.path.join("data", file_name)
+    # file_name = data.get("file_name", "topic_material.txt")
+    # file_path = os.path.join("data", file_name)
+    folder_name = data.get("folder_name", "COMP228_Java_Programming")
+    folder_path = os.path.join("course_material", folder_name)
+
+    documents = rag.load_documents(folder_path)
+    vector_store = rag.embed_documents()
+    titles = rag.get_titles()
+
+    # Set vector store on aiTutorAgent instance
+    aiTutorAgent.vector_store = vector_store
 
     # # Clear the conversation memory at the start of a new session
     # aiTutorAgent.memory.chat_memory.clear()
 
     # Load context content from the document
-    context = load_document_content(file_path)
+    # context = load_document_content(file_path)
 
     initial_input = {
         "subject": subject,
         "topic": topic,
-        "context": context,
+        "titles": titles,
         "summary": "",
         "messages": [],
         "answer_trials": 0,
