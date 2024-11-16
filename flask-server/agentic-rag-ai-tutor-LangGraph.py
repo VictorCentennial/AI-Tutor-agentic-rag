@@ -28,23 +28,23 @@ thread_ids = []
 
 
 # Function to load document content using LangChain
-def load_document_content(file_path):
-    try:
-        # Load documents from the file using TextLoader
-        loader = TextLoader(file_path)
-        documents = loader.load()
+# def load_document_content(file_path):
+#     try:
+#         # Load documents from the file using TextLoader
+#         loader = TextLoader(file_path)
+#         documents = loader.load()
 
-        # Split text into smaller chunks
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000, chunk_overlap=200
-        )
-        docs = text_splitter.split_documents(documents)
+#         # Split text into smaller chunks
+#         text_splitter = RecursiveCharacterTextSplitter(
+#             chunk_size=1000, chunk_overlap=200
+#         )
+#         docs = text_splitter.split_documents(documents)
 
-        # Concatenate the chunks into a single context string
-        context = "\n".join([doc.page_content for doc in docs])
-        return context
-    except Exception as e:
-        return f"Error loading document content: {e}"
+#         # Concatenate the chunks into a single context string
+#         context = "\n".join([doc.page_content for doc in docs])
+#         return context
+#     except Exception as e:
+#         return f"Error loading document content: {e}"
 
 
 def get_graph_data(graph):
@@ -147,17 +147,37 @@ def get_folders():
 @app.route("/start-tutoring", methods=["POST"])
 def start_tutoring():
     data = request.json
-    subject = data.get("subject", "Java")
-    topic = data.get("topic", "Polymorphism in Java")
+    # subject = data.get("subject", "Java")
+    # topic = data.get("topic", "Polymorphism in Java")
     duration = data.get("duration", 30)
-    # file_name = data.get("file_name", "topic_material.txt")
-    # file_path = os.path.join("data", file_name)
-    folder_name = data.get("folder_name", "COMP228_Java_Programming")
-    folder_path = os.path.join("course_material", folder_name)
+    folder_name = data.get("folder_name")  # Get the selected folder from request
 
+    if not folder_name:
+        return jsonify({"error": "No folder selected"}), 400
+
+    folder_path = os.path.join("course_material", folder_name)
+    vector_store_path = os.path.join("vector_store", folder_name)
+
+    if not os.path.exists(folder_path):
+        return jsonify({"error": "Selected folder not found"}), 404
+
+    # through embedding
+    logging.debug(f"Loading documents from: {folder_path}")
     documents = rag.load_documents(folder_path)
+    logging.debug(f"Documents loaded")
+
+    logging.debug(f"Embedding documents")
     vector_store = rag.embed_documents()
+
+    rag.save_vector_store(vector_store_path)
+
+    logging.debug(f"Vector store created: {vector_store}")
+
     titles = rag.get_titles()
+
+    # ##for loading from saved vector store
+    # vector_store = rag.load_vector_store(vector_store_path)
+    # titles = rag.get_titles()
 
     # Set vector store on aiTutorAgent instance
     aiTutorAgent.vector_store = vector_store
@@ -169,8 +189,8 @@ def start_tutoring():
     # context = load_document_content(file_path)
 
     initial_input = {
-        "subject": subject,
-        "topic": topic,
+        "subject": folder_name,
+        # "topic": topic,
         "titles": titles,
         "summary": "",
         "messages": [],
