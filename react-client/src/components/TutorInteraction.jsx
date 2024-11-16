@@ -15,7 +15,7 @@ TutorInteraction.propTypes = {
     role: PropTypes.string.isRequired,
     content: PropTypes.string.isRequired
   })).isRequired,
-  llmPrompt: PropTypes.string.isRequired,
+  llmPrompt: PropTypes.array.isRequired,
   onSend: PropTypes.func.isRequired,
   isLoading: PropTypes.bool.isRequired,
   nextState: PropTypes.string.isRequired
@@ -94,7 +94,7 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState 
   const handleSendMessage = () => {
     onSend(userMessage); // Pass the user's message to parent
     setUserMessage("");  // Clear the input after sending
-  };
+  }
 
   console.log(`nextState: ${nextState}`);
 
