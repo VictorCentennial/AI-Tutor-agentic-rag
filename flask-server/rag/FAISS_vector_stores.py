@@ -15,6 +15,13 @@ class FAISSVectorStoreFactory(VectorStoreFactory):
     ) -> VectorStore:
         return FAISS.from_documents(documents, embeddings)
 
+    def load_vector_store(
+        self, folder_path: str, embeddings: Embeddings
+    ) -> VectorStore:
+        return FAISS.load_local(
+            folder_path, embeddings, allow_dangerous_deserialization=True
+        )
+
 
 class PDFDirectoryLoaderFactory(DocumentLoaderFactory):
     def create_loader(self, folder_path: str) -> BaseLoader:
