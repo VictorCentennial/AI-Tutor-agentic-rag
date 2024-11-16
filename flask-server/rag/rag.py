@@ -14,6 +14,10 @@ class VectorStoreFactory(ABC):
     ) -> VectorStore:
         pass
 
+    @abstractmethod
+    def load_vector_store(self, folder_path: str) -> VectorStore:
+        pass
+
 
 class DocumentLoaderFactory(ABC):
     @abstractmethod
@@ -57,10 +61,32 @@ class RAG:
         )
         return self.vector_store
 
+    def save_vector_store(self, folder_path: str):
+        self.vector_store.save_local(folder_path)
+
     def get_titles(self) -> List[str]:
-        titles_set = set(
-            [document.page_content.split("\n")[0] for document in self.documents]
-        )
+        if self.documents:
+            # Get titles from documents
+            titles_set = set(
+                [document.page_content.split("\n")[0] for document in self.documents]
+            )
+        elif self.vector_store:
+            # Get titles from vector store
+            # For Chroma:
+            if hasattr(self.vector_store, "get"):
+                docs = self.vector_store.get()
+                titles_set = set(
+                    [doc.page_content.split("\n")[0] for doc in docs["documents"]]
+                )
+            # For FAISS:
+            elif hasattr(self.vector_store, "docstore"):
+                docs = list(self.vector_store.docstore._dict.values())
+                titles_set = set([doc.page_content.split("\n")[0] for doc in docs])
+            else:
+                raise ValueError("Unsupported vector store type")
+        else:
+            raise ValueError("No documents or vector store available")
+
         return list(titles_set)
 
     def query_vector_store(self, query: str, k: int = 3) -> List[Document]:
