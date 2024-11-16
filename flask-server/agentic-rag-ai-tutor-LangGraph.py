@@ -119,6 +119,31 @@ def state_to_json(state_snapshot):
     return state_json
 
 
+@app.route("/get-folders", methods=["GET"])
+def get_folders():
+    try:
+        course_material_path = "course_material"
+        logging.debug(
+            f"Looking for folders in: {os.path.abspath(course_material_path)}"
+        )
+
+        if not os.path.exists(course_material_path):
+            logging.error(f"Directory not found: {course_material_path}")
+            return jsonify({"error": "Course material directory not found"}), 404
+
+        folders = [
+            f
+            for f in os.listdir(course_material_path)
+            if os.path.isdir(os.path.join(course_material_path, f))
+        ]
+
+        logging.debug(f"Found folders: {folders}")
+        return jsonify({"folders": folders})
+    except Exception as e:
+        logging.error(f"Error in get_folders: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/start-tutoring", methods=["POST"])
 def start_tutoring():
     data = request.json
