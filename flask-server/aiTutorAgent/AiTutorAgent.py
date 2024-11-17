@@ -17,14 +17,17 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import START, END, StateGraph
 
 
-from typing import TypedDict, Annotated
+from typing import TypedDict, Annotated, List
 from datetime import timedelta, datetime
+from langchain.schema import Document
+from langchain.vectorstores.base import VectorStore
+from rag import rag
 
 
 class AgentState(TypedDict):
     subject: str
     topic: str
-    context: str
+    titles: List[str]
     summary: str
     messages: Annotated[list, add_messages]
     answer_trials: int
@@ -41,6 +44,21 @@ class AiTutorAgent:
             model=GOOGLE_MODEL_NAME, google_api_key=GOOGLE_API_KEY
         )
         self.memory = memory
+        self.vector_store = None  # Store as instance variable as it cannot store a state, not serializable
+
+        @property
+        def vector_store(self):
+            """Get the vector store"""
+            if self._vector_store is None:
+                raise ValueError("Vector store not initialized")
+            return self._vector_store
+
+        @vector_store.setter
+        def vector_store(self, value):
+            """Set the vector store"""
+            if not isinstance(value, VectorStore):
+                raise TypeError(f"Expected VectorStore, got {type(value)}")
+            self._vector_store = value
 
         builder = StateGraph(AgentState)
         builder.add_node("create_summary", self.create_summary)
@@ -117,11 +135,10 @@ class AiTutorAgent:
         )
 
         self.SUMMARY_PROMPT = """
-            Generate a concise summary of the key topics present in the provided context. 
-            Focus on capturing the main ideas and themes without including extraneous details.
-            Use bullet points to list the topics.
+            Generate a concise summary of the key topics present in the provided titles. 
+            List a few key topics in bullet points.
 
-            context: {context}
+            titles: {titles}
         """
 
         self.GREETING_PROMPT = """
@@ -170,13 +187,14 @@ class AiTutorAgent:
         ##TODO: extract the equation out to consider directly
         self.QUESTION_ANSWERING_PROMPT = """
         
-            You are an AI Tutor tasked with assisting a student based on a given question or selected topic and context.
+            You are an AI Tutor tasked with assisting a student based on a given question and the result from document search.
 
             Instructions:
-            1. **Answer the Question**: Provide a detailed answer to the question using the provided context. Incorporate examples to enhance understanding.
+            1. **Answer the Question**: Provide a detailed answer to the question using the result from document search. Incorporate examples to enhance understanding.
                 If possible, provide coding examples or diagrams to help the student understand the concept.
 
-            2. **Use Own Knowledge if Necessary**: If the context lacks the information needed, draw upon your own knowledge to answer comprehensively.
+            2. **Use Own Knowledge if Necessary**: If the document search does not provide the information needed, 
+                ignore the document result and draw upon your own knowledge to answer comprehensively.
 
             3. **Create a Testing Question**: After your explanation, formulate an exam-style question that effectively assesses the student's understanding of the topic.
             
@@ -190,7 +208,7 @@ class AiTutorAgent:
 
             **Student's Question**: {question}
 
-            **Context**: {context}
+            **Result from document search**: {result_from_document_search}
         """
 
         self.CHECK_QUESTION_ANSWER_PROMPT = """
@@ -332,17 +350,15 @@ class AiTutorAgent:
             """
 
     def create_summary(self, state: AgentState):
-        response = self.llm.invoke(self.SUMMARY_PROMPT.format(context=state["context"]))
+        response = self.llm.invoke(self.SUMMARY_PROMPT.format(titles=state["titles"]))
         return {"summary": response.content}
 
     def greeting(self, state: AgentState):
         subject = state["subject"]
-        topic = state["topic"]
+        # topic = state["topic"]
         summary = state["summary"]
         greeting_prompt = self.GREETING_PROMPT.format(subject=subject, summary=summary)
-        messages = [
-            HumanMessage(content=greeting_prompt.format(subject=subject, topic=topic))
-        ]
+        messages = [HumanMessage(content=greeting_prompt)]
         response = self.llm.invoke(messages)
         return {"messages": response}
 
@@ -383,9 +399,23 @@ class AiTutorAgent:
     def llm_answer_question(self, state: AgentState):
         while True:
             question = state["messages"][-1].content
+            # Use instance vector_store instead of state
+            if self.vector_store is None:
+                raise ValueError(
+                    "Vector store not initialized. Call set_vector_store first."
+                )
+
+            vector_search_results = self.vector_store.similarity_search(question, k=3)
+            print(f"vector_search_results: {vector_search_results}")
+            result_from_document_search = (
+                "\n\n".join([doc.page_content for doc in vector_search_results])
+                if vector_search_results
+                else ""
+            )
             response = self.llm.invoke(
                 self.QUESTION_ANSWERING_PROMPT.format(
-                    question=question, context=state["context"]
+                    question=question,
+                    result_from_document_search=result_from_document_search,
                 )
             )
             result = response.content

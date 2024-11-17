@@ -18,7 +18,7 @@ function TutorChat() {
   // Function to handle the start of the tutoring session
   const [nextState, setNextState] = useState("");
 
-  const handleStartTutoring = async (selectedSubject, selectedTopic, selectedDuration) => {
+  const handleStartTutoring = async (selectedFolder, selectedDuration) => {
     try {
       // setSubject(selectedSubject); // Store the selected subject in state
       // setTopic(selectedTopic);     // Store the selected topic in state
@@ -27,10 +27,9 @@ function TutorChat() {
       // Reset aiMessages to clear any previous messages
       setIsLoading(true);
       const response = await axios.post("api/start-tutoring", {
-        subject: selectedSubject,
-        topic: selectedTopic,
+        folder_name: selectedFolder,
         duration: selectedDuration,
-        file_name: "topic_material.txt", // Adjust the file name if necessary
+        //file_name: "topic_material.txt", // Adjust the file name if necessary
       });
       setIsLoading(false);
 

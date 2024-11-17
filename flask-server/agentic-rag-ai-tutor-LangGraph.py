@@ -15,6 +15,8 @@ from langchain.schema import AIMessage, HumanMessage
 
 from aiTutorAgent import aiTutorAgent
 
+from rag import rag
+
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -26,23 +28,23 @@ thread_ids = []
 
 
 # Function to load document content using LangChain
-def load_document_content(file_path):
-    try:
-        # Load documents from the file using TextLoader
-        loader = TextLoader(file_path)
-        documents = loader.load()
+# def load_document_content(file_path):
+#     try:
+#         # Load documents from the file using TextLoader
+#         loader = TextLoader(file_path)
+#         documents = loader.load()
 
-        # Split text into smaller chunks
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000, chunk_overlap=200
-        )
-        docs = text_splitter.split_documents(documents)
+#         # Split text into smaller chunks
+#         text_splitter = RecursiveCharacterTextSplitter(
+#             chunk_size=1000, chunk_overlap=200
+#         )
+#         docs = text_splitter.split_documents(documents)
 
-        # Concatenate the chunks into a single context string
-        context = "\n".join([doc.page_content for doc in docs])
-        return context
-    except Exception as e:
-        return f"Error loading document content: {e}"
+#         # Concatenate the chunks into a single context string
+#         context = "\n".join([doc.page_content for doc in docs])
+#         return context
+#     except Exception as e:
+#         return f"Error loading document content: {e}"
 
 
 def get_graph_data(graph):
@@ -117,25 +119,79 @@ def state_to_json(state_snapshot):
     return state_json
 
 
+@app.route("/get-folders", methods=["GET"])
+def get_folders():
+    try:
+        course_material_path = "course_material"
+        logging.debug(
+            f"Looking for folders in: {os.path.abspath(course_material_path)}"
+        )
+
+        if not os.path.exists(course_material_path):
+            logging.error(f"Directory not found: {course_material_path}")
+            return jsonify({"error": "Course material directory not found"}), 404
+
+        folders = [
+            f
+            for f in os.listdir(course_material_path)
+            if os.path.isdir(os.path.join(course_material_path, f))
+        ]
+
+        logging.debug(f"Found folders: {folders}")
+        return jsonify({"folders": folders})
+    except Exception as e:
+        logging.error(f"Error in get_folders: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/start-tutoring", methods=["POST"])
 def start_tutoring():
     data = request.json
-    subject = data.get("subject", "Java")
-    topic = data.get("topic", "Polymorphism in Java")
+    # subject = data.get("subject", "Java")
+    # topic = data.get("topic", "Polymorphism in Java")
     duration = data.get("duration", 30)
-    file_name = data.get("file_name", "topic_material.txt")
-    file_path = os.path.join("data", file_name)
+    folder_name = data.get("folder_name")  # Get the selected folder from request
+
+    if not folder_name:
+        return jsonify({"error": "No folder selected"}), 400
+
+    folder_path = os.path.join("course_material", folder_name)
+    vector_store_path = os.path.join("vector_store", folder_name)
+
+    if not os.path.exists(folder_path):
+        return jsonify({"error": "Selected folder not found"}), 404
+
+    # through embedding
+    logging.debug(f"Loading documents from: {folder_path}")
+    documents = rag.load_documents(folder_path)
+    logging.debug(f"Documents loaded")
+
+    logging.debug(f"Embedding documents")
+    vector_store = rag.embed_documents()
+
+    rag.save_vector_store(vector_store_path)
+
+    logging.debug(f"Vector store created: {vector_store}")
+
+    titles = rag.get_titles()
+
+    # ##for loading from saved vector store
+    # vector_store = rag.load_vector_store(vector_store_path)
+    # titles = rag.get_titles()
+
+    # Set vector store on aiTutorAgent instance
+    aiTutorAgent.vector_store = vector_store
 
     # # Clear the conversation memory at the start of a new session
     # aiTutorAgent.memory.chat_memory.clear()
 
     # Load context content from the document
-    context = load_document_content(file_path)
+    # context = load_document_content(file_path)
 
     initial_input = {
-        "subject": subject,
-        "topic": topic,
-        "context": context,
+        "subject": folder_name,
+        # "topic": topic,
+        "titles": titles,
         "summary": "",
         "messages": [],
         "answer_trials": 0,

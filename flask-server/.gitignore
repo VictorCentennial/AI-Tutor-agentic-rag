@@ -19,3 +19,6 @@ venv/
 # Python cache
 __pycache__/
 *.py[cod]
+
+#vector store
+vector_store/*
