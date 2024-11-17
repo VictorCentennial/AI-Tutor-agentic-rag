@@ -355,12 +355,10 @@ class AiTutorAgent:
 
     def greeting(self, state: AgentState):
         subject = state["subject"]
-        topic = state["topic"]
+        # topic = state["topic"]
         summary = state["summary"]
         greeting_prompt = self.GREETING_PROMPT.format(subject=subject, summary=summary)
-        messages = [
-            HumanMessage(content=greeting_prompt.format(subject=subject, topic=topic))
-        ]
+        messages = [HumanMessage(content=greeting_prompt)]
         response = self.llm.invoke(messages)
         return {"messages": response}
 
