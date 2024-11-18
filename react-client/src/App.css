@@ -1,6 +1,6 @@
 .App-header {
   background-color: #282c34;
-  padding: 20px;
+  padding: 5px;
   color: white;
   text-align: center;
 }
@@ -43,6 +43,7 @@ body,
 #root,
 .container-fluid {
   height: 100%;
+  width: 100%;
   margin: 0;
   padding: 0;
 }
@@ -109,4 +110,70 @@ pre {
 code {
   font-family: "Courier New", Courier, monospace;
   font-size: 14px;
+}
+.blinking-red {
+  color: red;
+  animation: blink 1s step-start infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+
+.preloader-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+  z-index: 9999;
+}
+
+.preloader-content {
+  text-align: center;
+}
+
+.animated-text {
+  opacity: 0;
+  animation: fadeIn 1.5s forwards;
+}
+
+.delay-1 {
+  animation-delay: 1.5s;
+}
+
+.delay-2 {
+  animation-delay: 2.5s;
+}
+
+.delay-3 {
+  animation-delay: 3.5s;
+}
+.delay-4 {
+  animation-delay: 4.5s;
+}
+
+.delay-5 {
+  animation-delay: 5.5s;
+}
+
+.delay-6 {
+  animation-delay: 6.5s;
+}
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }
