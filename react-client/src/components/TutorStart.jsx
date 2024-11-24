@@ -18,7 +18,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
         const response = await fetch('/api/get-folders');
         const data = await response.json();
         setFolders(data.folders);
-        setSelectedFolder(""); 
+        setSelectedFolder("");
       } catch (error) {
         console.error('Error fetching folders:', error);
       } finally {
@@ -59,17 +59,17 @@ function TutorStart({ onStartTutoring, isLoading }) {
             <h3>Hi !! I am your Tutor for today..</h3>
             <br />
             <p>While I am getting ready, please take a moment to review the following guidelines:</p>
-<p className="animated-text">1. Avoid asking irrelevant questions.</p>
-<p className="animated-text delay-1">2. AI Tutor will ask follow-up questions—please answer them to continue.</p>
-<p className="animated-text delay-2">3. Use the AI model for learning purposes, not for completing assignments.</p>
-<p className="animated-text delay-3">4. Enjoy the learning process!</p>
-<p className="animated-text delay-4">5. If you encounter any issues, try refreshing the page.</p>
-<p className="animated-text delay-5">6. Stay focused on the topic—this will help you get the most out of your session.</p>
-<p className="animated-text delay-6">7. Don't hesitate to ask for clarification if you don’t understand something.</p>
+            <p className="animated-text">1. Avoid asking irrelevant questions.</p>
+            <p className="animated-text delay-1">2. AI Tutor will ask follow-up questions—please answer them to continue.</p>
+            <p className="animated-text delay-2">3. Use the AI model for learning purposes, not for completing assignments.</p>
+            <p className="animated-text delay-3">4. Enjoy the learning process!</p>
+            <p className="animated-text delay-4">5. If you encounter any issues, try refreshing the page.</p>
+            <p className="animated-text delay-5">6. Stay focused on the topic—this will help you get the most out of your session.</p>
+            <p className="animated-text delay-6">7. Don&apos;t hesitate to ask for clarification if you don&apos;t understand something.</p>
 
-<br />
-<Spinner animation="border" role="status" />
-<p>Loading, please wait...</p>
+            <br />
+            <Spinner animation="border" role="status" />
+            <p>Loading, please wait...</p>
 
           </div>
         </div>
