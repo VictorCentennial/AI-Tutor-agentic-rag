@@ -144,6 +144,38 @@ def get_folders():
         return jsonify({"error": str(e)}), 500
 
 
+def embed_documents(folder_path, vector_store_path):
+    logging.debug(f"Loading documents from: {folder_path}")
+    documents = rag.load_documents(folder_path)
+    logging.debug(f"Documents loaded")
+
+    logging.debug(f"Embedding documents")
+    vector_store = rag.embed_documents()
+    rag.save_vector_store(vector_store_path)
+    logging.debug(f"Vector store created")
+
+
+def load_vector_store(vector_store_path):
+    logging.debug(f"Loading vector store from: {vector_store_path}")
+    vector_store = rag.load_vector_store(vector_store_path)
+    logging.debug(f"Vector store loaded")
+    return vector_store
+
+
+@app.route("/update-vector-store", methods=["POST"])
+def update_vector_store():
+    data = request.json
+    folder_name = data.get("folder_name")
+    folder_path = os.path.join("course_material", folder_name)
+    vector_store_path = os.path.join("vector_store", folder_name)
+    try:
+        embed_documents(folder_path, vector_store_path)
+        return jsonify({"message": f"Vector store for folder {folder_name} updated"})
+    except Exception as e:
+        logging.error(f"Error in update_vector_store: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/start-tutoring", methods=["POST"])
 def start_tutoring():
     data = request.json
@@ -161,17 +193,24 @@ def start_tutoring():
     if not os.path.exists(folder_path):
         return jsonify({"error": "Selected folder not found"}), 404
 
-    # through embedding
-    logging.debug(f"Loading documents from: {folder_path}")
-    documents = rag.load_documents(folder_path)
-    logging.debug(f"Documents loaded")
+    # check if vector store exists
+    if not os.path.exists(vector_store_path):
+        # through embedding
+        embed_documents(folder_path, vector_store_path)
+    else:
+        # load from saved vector store
+        vector_store = load_vector_store(vector_store_path)
 
-    logging.debug(f"Embedding documents")
-    vector_store = rag.embed_documents()
+    # logging.debug(f"Loading documents from: {folder_path}")
+    # documents = rag.load_documents(folder_path)
+    # logging.debug(f"Documents loaded")
 
-    rag.save_vector_store(vector_store_path)
+    # logging.debug(f"Embedding documents")
+    # vector_store = rag.embed_documents()
 
-    logging.debug(f"Vector store created: {vector_store}")
+    # rag.save_vector_store(vector_store_path)
+
+    # logging.debug(f"Vector store created: {vector_store}")
 
     titles = rag.get_titles()
 
