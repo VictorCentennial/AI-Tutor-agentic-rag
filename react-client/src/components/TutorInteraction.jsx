@@ -198,6 +198,30 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState 
         </Col>
       </Row>
 
+      <Row className="mt-4">
+        <Col xs={12} className="text-center">
+          {nextState === "student_answer_if_any_further_question" && (
+            <div>
+              <Button
+                variant="success"
+                className="mx-2"
+                onClick={() => onSend("Yes")}
+                disabled={isLoading}
+              >
+                Yes
+              </Button>
+              <Button
+                variant="danger"
+                className="mx-2"
+                onClick={() => onSend("No")}
+                disabled={isLoading}
+              >
+                No
+              </Button>
+            </div>
+          )}
+        </Col>
+      </Row>
 
       <Row className="mt-4 input-container">
         <Col xs={12} md={10} className="mb-3">
@@ -206,11 +230,11 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState 
             value={userMessage}
             onChange={(e) => setUserMessage(e.target.value)}
             placeholder="Your message..."
-            disabled={isLoading || !nextState}
+            disabled={isLoading || !nextState || nextState === "student_answer_if_any_further_question" || nextState === "time_out_message"}
           />
         </Col>
         <Col xs={12} md={2} className="text-center">
-          <Button variant="success" onClick={handleSendMessage} className="w-100" disabled={isLoading}>
+          <Button variant="success" onClick={handleSendMessage} className="w-100" disabled={isLoading || !nextState || nextState === "student_answer_if_any_further_question" || nextState === "time_out_message"}>
             Send
           </Button>
         </Col>
