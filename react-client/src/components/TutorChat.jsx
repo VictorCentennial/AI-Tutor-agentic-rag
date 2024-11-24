@@ -16,15 +16,21 @@ function TutorChat() {
   const [showWarning, setShowWarning] = useState(false); // State for pop-up visibility
 
   useEffect(() => {
-    if (remainingTime > 0 && isTutoringStarted) {
+    if (isTutoringStarted && remainingTime >= 0) {
       const timer = setInterval(() => {
-        setRemainingTime((prev) => prev - 1);
+        setRemainingTime((prevTime) => {
+          const newTime = prevTime - 1;
+          // When time reaches 0, trigger the timeout message
+          if (newTime === 0) {
+            handleSend("Time is up. We will summarize the session now.");
+          }
+          // Show warning pop-up when 5 minutes (300 seconds) are left
+          if (newTime === 300) {
+            setShowWarning(true);
+          }
+          return newTime;
+        });
       }, 1000);
-
-      // Show warning pop-up when 5 minutes (300 seconds) are left
-      if (remainingTime === 300) {
-        setShowWarning(true);
-      }
 
       return () => clearInterval(timer);
     }
@@ -54,9 +60,13 @@ function TutorChat() {
     }
   };
 
-  const handleSend = async (userMessage) => {
+  const handleSend = async (userMessage, AImessage = false) => {
     try {
-      setAiMessages([...aiMessages, { role: "User", content: userMessage }]);
+      if (!AImessage) {
+        setAiMessages([...aiMessages, { role: "User", content: userMessage }]);
+      } else {
+        setAiMessages([...aiMessages, { role: "AI", content: userMessage }]);
+      }
       setIsLoading(true);
       const response = await axios.post("api/continue-tutoring", {
         student_response: userMessage,
@@ -69,6 +79,7 @@ function TutorChat() {
       setNextState(next_state);
     } catch (error) {
       console.error("Error continuing tutoring session:", error);
+      setIsLoading(false);
     }
   };
 
@@ -82,14 +93,13 @@ function TutorChat() {
     <Container fluid className="mt-4 relative w-full">
       {isTutoringStarted && (
         <div
-          className={`absolute right-0 top-0 px-4 py-2 rounded-md text-right ${
-            remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""
-          }`}
+          className={`absolute right-0 top-0 px-4 py-2 rounded-md text-right ${remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""
+            }`}
         >
           🕒 Time Left: {formatTime(remainingTime)}
         </div>
       )}
-  
+
       {/* Pop-up Modal */}
       <Modal show={showWarning} onHide={() => setShowWarning(false)} centered>
         <Modal.Header closeButton>
@@ -107,7 +117,7 @@ function TutorChat() {
           </button>
         </Modal.Footer>
       </Modal>
-  
+
       {!isTutoringStarted ? (
         <TutorStart onStartTutoring={handleStartTutoring} isLoading={isLoading} />
       ) : (
@@ -121,7 +131,7 @@ function TutorChat() {
       )}
     </Container>
   );
-  
+
 }
 
 export default TutorChat;
