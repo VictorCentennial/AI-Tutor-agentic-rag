@@ -74,6 +74,7 @@ class AiTutorAgent:
         builder.add_node("hints", self.hints)
         builder.add_node("explain_answer", self.explain_answer)
         builder.add_node("intermediate_summary", self.intermediate_summary)
+        builder.add_node("ask_any_further_question", self.ask_any_further_question)
         builder.add_node(
             "student_answer_if_any_further_question",
             self.student_answer_if_any_further_question,
@@ -109,9 +110,11 @@ class AiTutorAgent:
         builder.add_edge("add_wrong_answer_trials", "hints")
         builder.add_edge("hints", "student_answer_question")
         builder.add_edge("explain_answer", "intermediate_summary")
+        builder.add_edge("intermediate_summary", "ask_any_further_question")
         builder.add_edge(
-            "intermediate_summary", "student_answer_if_any_further_question"
+            "ask_any_further_question", "student_answer_if_any_further_question"
         )
+
         builder.add_conditional_edges(
             "student_answer_if_any_further_question",
             self.any_further_question,
@@ -274,9 +277,6 @@ class AiTutorAgent:
             - Write a concise and clear summary of the session.
             - Focus on the main topics covered and the key concepts the student has learned or improved upon.
             - Highlight any progress the student made, including overcoming misconceptions or mastering difficult concepts.
-     
-            **Note**: Ask student to responds "Yes" for further questions or "No" for session summary.
-            ---
 
             **Question and Answer Context**:
 
@@ -284,10 +284,7 @@ class AiTutorAgent:
         """
 
         self.ANY_FURTHER_QUESTION_PROMPT = """
-            Based on the student's answer, determine if the student has any further questions.
-            If the student has any further questions, respond "Yes". If not, respond "No".
-
-            Student Answer: {student_answer}
+            Any further questions related to this course?
             """
 
         self.EXPLAIN_ANSWER_PROMPT = """
@@ -509,6 +506,9 @@ class AiTutorAgent:
         result = response.content
         return {"messages": [AIMessage(content=result)]}
 
+    def ask_any_further_question(self, state: AgentState):
+        return {"messages": [AIMessage(content=self.ANY_FURTHER_QUESTION_PROMPT)]}
+
     def student_answer_if_any_further_question(self, state: AgentState):
         return state
 
@@ -516,21 +516,23 @@ class AiTutorAgent:
         if self.time_out(state):
             return "TimeOut"
         student_answer = state["messages"][-1].content
-        response = self.llm.invoke(
-            self.ANY_FURTHER_QUESTION_PROMPT.format(student_answer=student_answer)
-        )
-        result = response.content
-        if result.startswith("Yes"):
-            return "Yes"
-        else:
-            return "No"
+        return student_answer
+        # response = self.llm.invoke(
+        #     self.ANY_FURTHER_QUESTION_PROMPT.format(student_answer=student_answer)
+        # )
+        # result = response.content
+        # if result.startswith("Yes"):
+        #     return "Yes"
+        # else:
+        #     return "No"
 
     def time_out_message(self, state: AgentState):
-        return {
-            "messages": [
-                AIMessage(content="Time is up. We will summarize the session now.")
-            ]
-        }
+        return state
+        # return {
+        #     "messages": [
+        #         AIMessage(content="Time is up. We will summarize the session now.")
+        #     ]
+        # }
 
     def session_summary(self, state: AgentState):
         messages = state["messages"]
