@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, Form, Button, Spinner, ProgressBar, Row, Col } from "react-bootstrap";
 import PropTypes from 'prop-types';
+import axios from "axios";
 
 function TutorStart({ onStartTutoring, isLoading }) {
   const [duration, setDuration] = useState(30);
@@ -8,6 +9,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
   const [selectedFolder, setSelectedFolder] = useState("");
   const [folderLoading, setFolderLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isEmbeddingsLoading, setIsEmbeddingsLoading] = React.useState(false);
 
   // States for the topic
   const [topic, setTopic] = useState("");
@@ -49,6 +51,22 @@ function TutorStart({ onStartTutoring, isLoading }) {
     setLoadingProgress(0);
     onStartTutoring(selectedFolder, duration);
   };
+
+
+  const handleUpdateVectorStore = async () => {
+    setIsEmbeddingsLoading(true);
+    const response = await axios.post("api/update-vector-store", {
+      folder_name: selectedFolder,
+    });
+    //handle response with popup window
+    if (response.status === 200) {
+      alert(response.data.message);
+    } else {
+      alert(response.data.error);
+    }
+    setIsEmbeddingsLoading(false);
+  }
+
 
   return (
     <div className="container mt-2">
@@ -117,6 +135,31 @@ function TutorStart({ onStartTutoring, isLoading }) {
                 </Col>
               </Row>
 
+              <div className="text-center">
+                <Button
+                  variant="primary"
+                  onClick={handleUpdateVectorStore}
+                  className="w-50"
+                  disabled={isLoading || !selectedFolder || isEmbeddingsLoading} // Only enable if a folder is selected
+                >
+                  {isEmbeddingsLoading ? (
+                    <>
+                      <Spinner
+                        as="span"
+                        animation="border"
+                        size="sm"
+                        role="status"
+                        aria-hidden="true"
+                        className="me-2"
+                      />
+                      Updating Course Material...
+                    </>
+                  ) : (
+                    'Update Course Material'
+                  )}
+                </Button>
+              </div>
+
               <Form.Group className="mb-3">
                 <Form.Label>Session Duration (minutes)</Form.Label>
                 <Form.Control
@@ -134,7 +177,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
                   variant="primary"
                   onClick={handleStart}
                   className="w-50"
-                  disabled={isLoading || !selectedFolder} // Only enable if a folder is selected
+                  disabled={isLoading || !selectedFolder || isEmbeddingsLoading} // Only enable if a folder is selected
                 >
                   {isLoading ? (
                     <>
