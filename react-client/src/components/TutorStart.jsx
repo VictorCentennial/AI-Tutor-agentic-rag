@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Card, Form, Button, Spinner, ProgressBar, Row, Col } from "react-bootstrap";
+import { Card, Form, Button, Spinner, Row, Col } from "react-bootstrap";
 import PropTypes from 'prop-types';
 import axios from "axios";
 
@@ -8,11 +8,11 @@ function TutorStart({ onStartTutoring, isLoading }) {
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState("");
   const [folderLoading, setFolderLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(0);
   const [isEmbeddingsLoading, setIsEmbeddingsLoading] = React.useState(false);
 
   // States for the topic
   const [topic, setTopic] = useState("");
+  const [topics, setTopics] = useState([]);
 
   useEffect(() => {
     const fetchFolders = async () => {
@@ -32,24 +32,27 @@ function TutorStart({ onStartTutoring, isLoading }) {
   }, []);
 
   useEffect(() => {
-    let progressInterval;
-    if (isLoading) {
-      progressInterval = setInterval(() => {
-        setLoadingProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(progressInterval);
-            return 100;
-          }
-          return prev + 10;
-        });
-      }, 300);
-    }
-    return () => clearInterval(progressInterval);
-  }, [isLoading]);
+    const fetchTopics = async () => {
+      if (!selectedFolder) {
+        setTopics([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/get-topics?folder=${selectedFolder}`);
+        const data = await response.json();
+        setTopics(data.topics);
+        setTopic(""); // Reset selected topic
+      } catch (error) {
+        console.error('Error fetching topics:', error);
+      }
+    };
+
+    fetchTopics();
+  }, [selectedFolder]);
 
   const handleStart = () => {
-    setLoadingProgress(0);
-    onStartTutoring(selectedFolder, duration);
+    onStartTutoring(selectedFolder, duration, topic);
   };
 
 
@@ -121,15 +124,22 @@ function TutorStart({ onStartTutoring, isLoading }) {
                 </Col>
                 <Col>
                   <Form.Group className="mb-3">
-                    <Form.Label>Select Topic</Form.Label>
+                    <Form.Label>Select Topic (Optional)</Form.Label>
                     <Form.Select
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
+                      disabled={!selectedFolder}
                     >
-                      <option value="">Select a Topic</option>
-                      <option value="Math">Math</option>
-                      <option value="Science">Science</option>
-                      <option value="History">History</option>
+                      <option value="">
+                        {!selectedFolder
+                          ? "First select a course"
+                          : "All topics"}
+                      </option>
+                      {topics.map((topicName) => (
+                        <option key={topicName} value={topicName}>
+                          {topicName}
+                        </option>
+                      ))}
                     </Form.Select>
                   </Form.Group>
                 </Col>
@@ -177,7 +187,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
                   variant="primary"
                   onClick={handleStart}
                   className="w-50"
-                  disabled={isLoading || !selectedFolder || isEmbeddingsLoading} // Only enable if a folder is selected
+                  disabled={isLoading || !selectedFolder || isEmbeddingsLoading}
                 >
                   {isLoading ? (
                     <>
