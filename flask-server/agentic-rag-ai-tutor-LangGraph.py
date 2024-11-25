@@ -210,7 +210,7 @@ def start_tutoring():
     # topic = data.get("topic", "Polymorphism in Java")
     duration = data.get("duration", 30)
     folder_name = data.get("folder_name")  # Get the selected folder from request
-
+    topic = data.get("topic")
     if not folder_name:
         return jsonify({"error": "No folder selected"}), 400
 
@@ -238,8 +238,10 @@ def start_tutoring():
     # rag.save_vector_store(vector_store_path)
 
     # logging.debug(f"Vector store created: {vector_store}")
-
-    titles = rag.get_titles()
+    if topic != "All topics":
+        titles = rag.get_titles(topic)
+    else:
+        titles = rag.get_titles()
 
     # ##for loading from saved vector store
     # vector_store = rag.load_vector_store(vector_store_path)
