@@ -74,6 +74,17 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState 
     // console.log(`aiMessages: ${aiMessages}`);
   }, [aiMessages]);
 
+
+  // const handleSendMessage = () => {
+  //   onSend(userMessage); // Pass the user's message to parent
+  //   setUserMessage("");  // Clear the input after sending
+  // }
+  const handleSendMessage = React.useCallback(() => {
+    onSend(userMessage);
+    setUserMessage("");
+  }, [onSend, userMessage]);
+
+
   // For pressing Shift + Enter to send message
   useEffect(() => {
     const handleKeyPress = (event) => {
@@ -83,18 +94,9 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState 
     };
 
     document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [handleSendMessage]);
 
-    // Cleanup listener on component unmount
-    return () => {
-      document.removeEventListener('keydown', handleKeyPress);
-    };
-  }, [userMessage]);
-
-
-  const handleSendMessage = () => {
-    onSend(userMessage); // Pass the user's message to parent
-    setUserMessage("");  // Clear the input after sending
-  }
 
   return (
     <div className="flex-grow-1">
