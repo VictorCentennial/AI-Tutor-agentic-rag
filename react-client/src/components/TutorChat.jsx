@@ -77,10 +77,23 @@ function TutorChat() {
       setAiMessages(messages);
       setLlmPrompt(state);
       setNextState(next_state);
+
+      // Save messages if this is the end of the session
+      if (next_state === null || next_state === "") {
+        console.log("Saving session messages");
+        await saveSessionMessages();
+        console.log("Session messages saved");
+      }
     } catch (error) {
       console.error("Error continuing tutoring session:", error);
       setIsLoading(false);
     }
+  };
+
+  const saveSessionMessages = async () => {
+    await axios.post("api/save-session", {
+      thread_id: threadId,
+    });
   };
 
   const formatTime = (timeInSeconds) => {
