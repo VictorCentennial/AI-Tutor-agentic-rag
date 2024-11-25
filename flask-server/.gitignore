@@ -22,3 +22,6 @@ __pycache__/
 
 #vector store
 vector_store/*
+
+#saved session history
+saved_session_history/*

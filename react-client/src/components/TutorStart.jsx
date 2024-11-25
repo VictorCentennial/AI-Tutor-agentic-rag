@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { Card, Form, Button, Spinner, ProgressBar, Row, Col } from "react-bootstrap";
+import { Card, Form, Button, Spinner, Row, Col } from "react-bootstrap";
 import PropTypes from 'prop-types';
+import axios from "axios";
 
 function TutorStart({ onStartTutoring, isLoading }) {
   const [duration, setDuration] = useState(30);
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState("");
   const [folderLoading, setFolderLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isEmbeddingsLoading, setIsEmbeddingsLoading] = React.useState(false);
 
   // States for the topic
   const [topic, setTopic] = useState("");
+  const [topics, setTopics] = useState([]);
 
   useEffect(() => {
     const fetchFolders = async () => {
@@ -18,7 +20,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
         const response = await fetch('/api/get-folders');
         const data = await response.json();
         setFolders(data.folders);
-        setSelectedFolder(""); 
+        setSelectedFolder("");
       } catch (error) {
         console.error('Error fetching folders:', error);
       } finally {
@@ -30,25 +32,44 @@ function TutorStart({ onStartTutoring, isLoading }) {
   }, []);
 
   useEffect(() => {
-    let progressInterval;
-    if (isLoading) {
-      progressInterval = setInterval(() => {
-        setLoadingProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(progressInterval);
-            return 100;
-          }
-          return prev + 10;
-        });
-      }, 300);
-    }
-    return () => clearInterval(progressInterval);
-  }, [isLoading]);
+    const fetchTopics = async () => {
+      if (!selectedFolder) {
+        setTopics([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/get-topics?folder=${selectedFolder}`);
+        const data = await response.json();
+        setTopics(data.topics);
+        setTopic(""); // Reset selected topic
+      } catch (error) {
+        console.error('Error fetching topics:', error);
+      }
+    };
+
+    fetchTopics();
+  }, [selectedFolder]);
 
   const handleStart = () => {
-    setLoadingProgress(0);
-    onStartTutoring(selectedFolder, duration);
+    onStartTutoring(selectedFolder, duration, topic);
   };
+
+
+  const handleUpdateVectorStore = async () => {
+    setIsEmbeddingsLoading(true);
+    const response = await axios.post("api/update-vector-store", {
+      folder_name: selectedFolder,
+    });
+    //handle response with popup window
+    if (response.status === 200) {
+      alert(response.data.message);
+    } else {
+      alert(response.data.error);
+    }
+    setIsEmbeddingsLoading(false);
+  }
+
 
   return (
     <div className="container mt-2">
@@ -59,17 +80,17 @@ function TutorStart({ onStartTutoring, isLoading }) {
             <h3>Hi !! I am your Tutor for today..</h3>
             <br />
             <p>While I am getting ready, please take a moment to review the following guidelines:</p>
-<p className="animated-text">1. Avoid asking irrelevant questions.</p>
-<p className="animated-text delay-1">2. AI Tutor will ask follow-up questions—please answer them to continue.</p>
-<p className="animated-text delay-2">3. Use the AI model for learning purposes, not for completing assignments.</p>
-<p className="animated-text delay-3">4. Enjoy the learning process!</p>
-<p className="animated-text delay-4">5. If you encounter any issues, try refreshing the page.</p>
-<p className="animated-text delay-5">6. Stay focused on the topic—this will help you get the most out of your session.</p>
-<p className="animated-text delay-6">7. Don't hesitate to ask for clarification if you don’t understand something.</p>
+            <p className="animated-text">1. Avoid asking irrelevant questions.</p>
+            <p className="animated-text delay-1">2. AI Tutor will ask follow-up questions—please answer them to continue.</p>
+            <p className="animated-text delay-2">3. Use the AI model for learning purposes, not for completing assignments.</p>
+            <p className="animated-text delay-3">4. Enjoy the learning process!</p>
+            <p className="animated-text delay-4">5. If you encounter any issues, try refreshing the page.</p>
+            <p className="animated-text delay-5">6. Stay focused on the topic—this will help you get the most out of your session.</p>
+            <p className="animated-text delay-6">7. Don&apos;t hesitate to ask for clarification if you don&apos;t understand something.</p>
 
-<br />
-<Spinner animation="border" role="status" />
-<p>Loading, please wait...</p>
+            <br />
+            <Spinner animation="border" role="status" />
+            <p>Loading, please wait...</p>
 
           </div>
         </div>
@@ -103,19 +124,51 @@ function TutorStart({ onStartTutoring, isLoading }) {
                 </Col>
                 <Col>
                   <Form.Group className="mb-3">
-                    <Form.Label>Select Topic</Form.Label>
+                    <Form.Label>Select Topic (Optional)</Form.Label>
                     <Form.Select
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
+                      disabled={!selectedFolder}
                     >
-                      <option value="">Select a Topic</option>
-                      <option value="Math">Math</option>
-                      <option value="Science">Science</option>
-                      <option value="History">History</option>
+                      <option value="">
+                        {!selectedFolder
+                          ? "First select a course"
+                          : "All topics"}
+                      </option>
+                      {topics.map((topicName) => (
+                        <option key={topicName} value={topicName}>
+                          {topicName}
+                        </option>
+                      ))}
                     </Form.Select>
                   </Form.Group>
                 </Col>
               </Row>
+
+              <div className="text-center">
+                <Button
+                  variant="primary"
+                  onClick={handleUpdateVectorStore}
+                  className="w-50"
+                  disabled={isLoading || !selectedFolder || isEmbeddingsLoading} // Only enable if a folder is selected
+                >
+                  {isEmbeddingsLoading ? (
+                    <>
+                      <Spinner
+                        as="span"
+                        animation="border"
+                        size="sm"
+                        role="status"
+                        aria-hidden="true"
+                        className="me-2"
+                      />
+                      Updating Course Material...
+                    </>
+                  ) : (
+                    'Update Course Material'
+                  )}
+                </Button>
+              </div>
 
               <Form.Group className="mb-3">
                 <Form.Label>Session Duration (minutes)</Form.Label>
@@ -134,7 +187,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
                   variant="primary"
                   onClick={handleStart}
                   className="w-50"
-                  disabled={isLoading || !selectedFolder} // Only enable if a folder is selected
+                  disabled={isLoading || !selectedFolder || isEmbeddingsLoading}
                 >
                   {isLoading ? (
                     <>

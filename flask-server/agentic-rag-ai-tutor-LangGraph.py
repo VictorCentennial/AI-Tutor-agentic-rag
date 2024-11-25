@@ -144,6 +144,65 @@ def get_folders():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/get-topics", methods=["GET"])
+def get_topics():
+    try:
+        folder_name = request.args.get("folder")
+        if not folder_name:
+            return jsonify({"error": "No folder specified"}), 400
+
+        folder_path = os.path.join("course_material", folder_name)
+        if not os.path.exists(folder_path):
+            return jsonify({"error": "Folder not found"}), 404
+
+        # Get all files in the folder
+        topics = [
+            f
+            for f in os.listdir(folder_path)
+            if os.path.isfile(os.path.join(folder_path, f))
+        ]
+
+        # Remove file extensions if desired
+        topics = sorted([os.path.splitext(f)[0] for f in topics])
+
+        return jsonify({"topics": topics})
+    except Exception as e:
+        logging.error(f"Error in get_topics: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+def embed_documents(folder_path, vector_store_path):
+    logging.debug(f"Loading documents from: {folder_path}")
+    documents = rag.load_documents(folder_path)
+    logging.debug(f"Documents loaded")
+
+    logging.debug(f"Embedding documents")
+    vector_store = rag.embed_documents()
+    rag.save_vector_store(vector_store_path)
+    logging.debug(f"Vector store created")
+
+
+def load_vector_store(vector_store_path):
+    logging.debug(f"Loading vector store from: {vector_store_path}")
+    vector_store = rag.load_vector_store(vector_store_path)
+    logging.debug(f"Vector store loaded")
+    return vector_store
+
+
+@app.route("/update-vector-store", methods=["POST"])
+def update_vector_store():
+    data = request.json
+    folder_name = data.get("folder_name")
+    folder_path = os.path.join("course_material", folder_name)
+    vector_store_path = os.path.join("vector_store", folder_name)
+    try:
+        embed_documents(folder_path, vector_store_path)
+        return jsonify({"message": f"Vector store for folder {folder_name} updated"})
+    except Exception as e:
+        logging.error(f"Error in update_vector_store: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/start-tutoring", methods=["POST"])
 def start_tutoring():
     data = request.json
@@ -151,7 +210,7 @@ def start_tutoring():
     # topic = data.get("topic", "Polymorphism in Java")
     duration = data.get("duration", 30)
     folder_name = data.get("folder_name")  # Get the selected folder from request
-
+    topic = data.get("topic")
     if not folder_name:
         return jsonify({"error": "No folder selected"}), 400
 
@@ -161,19 +220,28 @@ def start_tutoring():
     if not os.path.exists(folder_path):
         return jsonify({"error": "Selected folder not found"}), 404
 
-    # through embedding
-    logging.debug(f"Loading documents from: {folder_path}")
-    documents = rag.load_documents(folder_path)
-    logging.debug(f"Documents loaded")
+    # check if vector store exists
+    if not os.path.exists(vector_store_path):
+        # through embedding
+        embed_documents(folder_path, vector_store_path)
+    else:
+        # load from saved vector store
+        vector_store = load_vector_store(vector_store_path)
 
-    logging.debug(f"Embedding documents")
-    vector_store = rag.embed_documents()
+    # logging.debug(f"Loading documents from: {folder_path}")
+    # documents = rag.load_documents(folder_path)
+    # logging.debug(f"Documents loaded")
 
-    rag.save_vector_store(vector_store_path)
+    # logging.debug(f"Embedding documents")
+    # vector_store = rag.embed_documents()
 
-    logging.debug(f"Vector store created: {vector_store}")
+    # rag.save_vector_store(vector_store_path)
 
-    titles = rag.get_titles()
+    # logging.debug(f"Vector store created: {vector_store}")
+    if topic != "All topics":
+        titles = rag.get_titles(topic)
+    else:
+        titles = rag.get_titles()
 
     # ##for loading from saved vector store
     # vector_store = rag.load_vector_store(vector_store_path)
@@ -250,6 +318,55 @@ def continue_tutoring():
             "next_state": next_state,
         }
     )
+
+
+@app.route("/save-session", methods=["POST"])
+def save_session_history():
+    # Add these configurations
+    SESSION_HISTORY_DIR = "saved_session_history"
+    if not os.path.exists(SESSION_HISTORY_DIR):
+        os.makedirs(SESSION_HISTORY_DIR)
+
+    try:
+        data = request.json
+        thread_id = data.get("thread_id")
+        thread = {"configurable": {"thread_id": str(thread_id)}}
+        state = aiTutorAgent.graph.get_state(thread)
+        message_history = state.values["messages"]
+        subject = state.values["subject"]
+        start_time = state.values["start_time"]
+        end_time = datetime.now()
+
+        # for message in message_history:
+        #     print(message.pretty_print())
+
+        # Create a filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"session_{timestamp}.txt"
+        filepath = os.path.join(SESSION_HISTORY_DIR, filename)
+
+        with open(filepath, "w") as file:
+            file.write(f"Subject: {subject}\n")
+            file.write(f"Start Time: {start_time}\n")
+            file.write(f"End Time: {end_time}\n")
+            file.write("-" * 80 + "\n")
+
+            for message in message_history:
+                role = (
+                    "AI Message" if isinstance(message, AIMessage) else "Human Message"
+                )
+                header = f" {role} "
+                separator = "=" * ((80 - len(header)) // 2)
+                file.write(f"{separator}{header}{separator}\n")
+
+                # Write the message content
+                file.write(f"{message.content}\n\n")
+
+        return jsonify({"message": f"Session history saved to {filepath}"})
+
+    except Exception as e:
+        logging.error(f"Error in save_session_history: {str(e)}")
+        return jsonify({"error": "Failed to save session", "details": str(e)}), 500
 
 
 @app.route("/get-graph", methods=["GET"])
