@@ -71,7 +71,7 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState 
     if (interactionBoxRef.current) {
       interactionBoxRef.current.scrollTop = interactionBoxRef.current.scrollHeight;
     }
-    console.log(`aiMessages: ${aiMessages}`);
+    // console.log(`aiMessages: ${aiMessages}`);
   }, [aiMessages]);
 
   // For pressing Shift + Enter to send message
