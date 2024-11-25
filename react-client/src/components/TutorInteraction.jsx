@@ -96,8 +96,6 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState 
     setUserMessage("");  // Clear the input after sending
   }
 
-  console.log(`nextState: ${nextState}`);
-
   return (
     <div className="flex-grow-1">
       <Row className="mt-4">
