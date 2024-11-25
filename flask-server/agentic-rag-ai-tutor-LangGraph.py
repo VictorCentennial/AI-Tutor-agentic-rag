@@ -291,6 +291,55 @@ def continue_tutoring():
     )
 
 
+@app.route("/save-session", methods=["POST"])
+def save_session_history():
+    # Add these configurations
+    SESSION_HISTORY_DIR = "saved_session_history"
+    if not os.path.exists(SESSION_HISTORY_DIR):
+        os.makedirs(SESSION_HISTORY_DIR)
+
+    try:
+        data = request.json
+        thread_id = data.get("thread_id")
+        thread = {"configurable": {"thread_id": str(thread_id)}}
+        state = aiTutorAgent.graph.get_state(thread)
+        message_history = state.values["messages"]
+        subject = state.values["subject"]
+        start_time = state.values["start_time"]
+        end_time = datetime.now()
+
+        # for message in message_history:
+        #     print(message.pretty_print())
+
+        # Create a filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"session_{timestamp}.txt"
+        filepath = os.path.join(SESSION_HISTORY_DIR, filename)
+
+        with open(filepath, "w") as file:
+            file.write(f"Subject: {subject}\n")
+            file.write(f"Start Time: {start_time}\n")
+            file.write(f"End Time: {end_time}\n")
+            file.write("-" * 80 + "\n")
+
+            for message in message_history:
+                role = (
+                    "AI Message" if isinstance(message, AIMessage) else "Human Message"
+                )
+                header = f" {role} "
+                separator = "=" * ((80 - len(header)) // 2)
+                file.write(f"{separator}{header}{separator}\n")
+
+                # Write the message content
+                file.write(f"{message.content}\n\n")
+
+        return jsonify({"message": f"Session history saved to {filepath}"})
+
+    except Exception as e:
+        logging.error(f"Error in save_session_history: {str(e)}")
+        return jsonify({"error": "Failed to save session", "details": str(e)}), 500
+
+
 @app.route("/get-graph", methods=["GET"])
 def get_graph_image():
     graph = aiTutorAgent.graph.get_graph()
