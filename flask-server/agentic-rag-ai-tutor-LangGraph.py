@@ -220,13 +220,17 @@ def start_tutoring():
     if not os.path.exists(folder_path):
         return jsonify({"error": "Selected folder not found"}), 404
 
+    # print(f"topic: {topic}")
+    # print(f"folder_name: {folder_name}")
+    # print(f"vector_store_path: {vector_store_path}")
+    # print(f"folder_path: {folder_path}")
+
     # check if vector store exists
     if not os.path.exists(vector_store_path):
         # through embedding
         embed_documents(folder_path, vector_store_path)
-    else:
-        # load from saved vector store
-        vector_store = load_vector_store(vector_store_path)
+    # load from saved vector store
+    vector_store = load_vector_store(vector_store_path)
 
     # logging.debug(f"Loading documents from: {folder_path}")
     # documents = rag.load_documents(folder_path)
