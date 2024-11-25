@@ -5,6 +5,7 @@ from langchain.schema import Document
 from langchain.text_splitter import TextSplitter
 from langchain_community.document_loaders.base import BaseLoader
 from langchain.vectorstores.base import VectorStore
+import os
 
 
 class VectorStoreFactory(ABC):
@@ -64,24 +65,60 @@ class RAG:
     def save_vector_store(self, folder_path: str):
         self.vector_store.save_local(folder_path)
 
-    def get_titles(self) -> List[str]:
+    def get_titles(self, file_name: Optional[str] = None) -> List[str]:
         if self.documents:
             # Get titles from documents
-            titles_set = set(
-                [document.page_content.split("\n")[0] for document in self.documents]
-            )
+            if file_name:
+                titles_set = set(
+                    [
+                        doc.page_content.split("\n")[0]
+                        for doc in self.documents
+                        if os.path.splitext(doc.metadata.get("source", ""))[0].endswith(
+                            file_name
+                        )
+                    ]
+                )
+            else:
+                titles_set = set(
+                    [
+                        document.page_content.split("\n")[0]
+                        for document in self.documents
+                    ]
+                )
         elif self.vector_store:
             # Get titles from vector store
             # For Chroma:
             if hasattr(self.vector_store, "get"):
                 docs = self.vector_store.get()
-                titles_set = set(
-                    [doc.page_content.split("\n")[0] for doc in docs["documents"]]
-                )
+                if file_name:
+                    titles_set = set(
+                        [
+                            doc.page_content.split("\n")[0]
+                            for doc in docs["documents"]
+                            if os.path.splitext(doc.metadata.get("source", ""))[
+                                0
+                            ].endswith(file_name)
+                        ]
+                    )
+                else:
+                    titles_set = set(
+                        [doc.page_content.split("\n")[0] for doc in docs["documents"]]
+                    )
             # For FAISS:
             elif hasattr(self.vector_store, "docstore"):
                 docs = list(self.vector_store.docstore._dict.values())
-                titles_set = set([doc.page_content.split("\n")[0] for doc in docs])
+                if file_name:
+                    titles_set = set(
+                        [
+                            doc.page_content.split("\n")[0]
+                            for doc in docs
+                            if os.path.splitext(doc.metadata.get("source", ""))[
+                                0
+                            ].endswith(file_name)
+                        ]
+                    )
+                else:
+                    titles_set = set([doc.page_content.split("\n")[0] for doc in docs])
             else:
                 raise ValueError("Unsupported vector store type")
         else:
