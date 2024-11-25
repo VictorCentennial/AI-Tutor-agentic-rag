@@ -144,6 +144,33 @@ def get_folders():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/get-topics", methods=["GET"])
+def get_topics():
+    try:
+        folder_name = request.args.get("folder")
+        if not folder_name:
+            return jsonify({"error": "No folder specified"}), 400
+
+        folder_path = os.path.join("course_material", folder_name)
+        if not os.path.exists(folder_path):
+            return jsonify({"error": "Folder not found"}), 404
+
+        # Get all files in the folder
+        topics = [
+            f
+            for f in os.listdir(folder_path)
+            if os.path.isfile(os.path.join(folder_path, f))
+        ]
+
+        # Remove file extensions if desired
+        topics = sorted([os.path.splitext(f)[0] for f in topics])
+
+        return jsonify({"topics": topics})
+    except Exception as e:
+        logging.error(f"Error in get_topics: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 def embed_documents(folder_path, vector_store_path):
     logging.debug(f"Loading documents from: {folder_path}")
     documents = rag.load_documents(folder_path)
