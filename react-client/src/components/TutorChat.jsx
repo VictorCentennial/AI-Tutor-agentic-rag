@@ -36,12 +36,13 @@ function TutorChat() {
     }
   }, [remainingTime, isTutoringStarted]);
 
-  const handleStartTutoring = async (selectedFolder, selectedDuration) => {
+  const handleStartTutoring = async (selectedFolder, selectedDuration, selectedTopic) => {
     try {
       setIsLoading(true);
       const response = await axios.post("api/start-tutoring", {
         folder_name: selectedFolder,
         duration: selectedDuration,
+        topic: selectedTopic,
       });
       setIsLoading(false);
 
