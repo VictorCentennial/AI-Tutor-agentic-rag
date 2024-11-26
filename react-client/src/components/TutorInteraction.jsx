@@ -10,6 +10,8 @@ import MermaidDiagram from './MermaidDiagram';
 // import { coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import PropTypes from 'prop-types';
 
+const debugMode = import.meta.env.VITE_DEBUG_MODE === 'true';
+
 TutorInteraction.propTypes = {
   aiMessages: PropTypes.arrayOf(PropTypes.shape({
     role: PropTypes.string.isRequired,
@@ -18,10 +20,12 @@ TutorInteraction.propTypes = {
   llmPrompt: PropTypes.array.isRequired,
   onSend: PropTypes.func.isRequired,
   isLoading: PropTypes.bool.isRequired,
-  nextState: PropTypes.string.isRequired
+  nextState: PropTypes.string.isRequired,
+  selectedFolder: PropTypes.string.isRequired,
+  selectedTopic: PropTypes.string
 };
 
-function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState }) {
+function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState, selectedFolder, selectedTopic }) {
   const [userMessage, setUserMessage] = React.useState("");
   const interactionBoxRef = useRef(null); // Reference to interaction box for smooth scrolling
   const [graphData, setGraphData] = React.useState(null);
@@ -97,7 +101,6 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState 
     return () => document.removeEventListener('keydown', handleKeyPress);
   }, [handleSendMessage]);
 
-
   return (
     <div className="flex-grow-1">
       <Row className="mt-4">
@@ -132,54 +135,33 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState 
           </div>
         </Col>
 
+
         <Col xs={12} md={6} className="mb-3">
           <div className="prompt-box">
-            <h5>LangGraph Workflow</h5>
-            {graphData && (
-              // <div
-              //   className="mermaid-container"
-              //   style={{
-              //     background: 'white',
-              //     padding: '20px',
-              //     borderRadius: '8px',
-              //     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              //     marginBottom: '20px',
-              //     maxHeight: '600px',
-              //     overflowY: 'auto'
-              //   }}
-              // >
-              //   <pre className="mermaid">
-              //     {getMermaidDefinition(graphData)}
-              //   </pre>
-              // </div>
-              <MermaidDiagram definition={getMermaidDefinition(graphData)} />
-            )
-            }
-            {/* <h5>LLM Prompt (Debugging)</h5>
-            <Form.Control
-              as="textarea"
-              value={typeof llmPrompt === 'object' ? JSON.stringify(llmPrompt, null, 2) : llmPrompt}
-              readOnly
-              placeholder="LLM Prompt will be shown here for debugging purposes."
-            /> */}
-            <h5>State JSON (Debugging)</h5>
-            <div style={{ maxHeight: '400px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '12px' }}>
-              <JsonView data={llmPrompt} />
+            <div className="session-info mb-4">
+              <div className="course-title">
+                <span className="label">Course:</span>
+                <h1>{selectedFolder}</h1>
+              </div>
+
+              <div className="topic-title">
+                <span className="label">Topic:</span>
+                <h2>{selectedTopic || "All Topics"}</h2>
+              </div>
             </div>
-            {/* <div
-              style={{
-                backgroundColor: '#f8f9fa',
-                padding: '15px',
-                borderRadius: '5px',
-                maxHeight: '400px',
-                overflowY: 'auto',
-                border: '1px solid #dee2e6',
-                fontSize: '14px',
-                lineHeight: '1.5',
-              }}
-            >
-              <RenderJsonWithMarkdown data={llmPrompt} />
-            </div> */}
+            {debugMode && (
+              <>
+                <h5>LangGraph Workflow</h5>
+                ({graphData && (
+                  <MermaidDiagram definition={getMermaidDefinition(graphData)} />
+                )
+                })
+                <h5>State JSON (Debugging)</h5>
+                <div style={{ maxHeight: '400px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '12px' }}>
+                  <JsonView data={llmPrompt} />
+                </div>
+              </>
+            )}
           </div>
         </Col>
       </Row>
