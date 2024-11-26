@@ -15,6 +15,10 @@ function TutorChat() {
   const [remainingTime, setRemainingTime] = useState(0); // State for remaining time in seconds
   const [showWarning, setShowWarning] = useState(false); // State for pop-up visibility
 
+  const [selectedFolder, setSelectedFolder] = useState("");
+  const [selectedTopic, setSelectedTopic] = useState("");
+
+
   useEffect(() => {
     if (isTutoringStarted && remainingTime >= 0) {
       const timer = setInterval(() => {
@@ -39,6 +43,8 @@ function TutorChat() {
   const handleStartTutoring = async (selectedFolder, selectedDuration, selectedTopic) => {
     try {
       setIsLoading(true);
+      setSelectedFolder(selectedFolder);
+      setSelectedTopic(selectedTopic);
       const response = await axios.post("api/start-tutoring", {
         folder_name: selectedFolder,
         duration: selectedDuration,
@@ -141,6 +147,8 @@ function TutorChat() {
           onSend={handleSend}
           isLoading={isLoading}
           nextState={nextState}
+          selectedFolder={selectedFolder}
+          selectedTopic={selectedTopic}
         />
       )}
     </Container>

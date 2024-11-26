@@ -66,26 +66,26 @@ class RAG:
         self.vector_store.save_local(folder_path)
 
     def get_titles(self, file_name: Optional[str] = None) -> List[str]:
-        if self.documents:
-            # Get titles from documents
-            if file_name:
-                titles_set = set(
-                    [
-                        doc.page_content.split("\n")[0]
-                        for doc in self.documents
-                        if os.path.splitext(doc.metadata.get("source", ""))[0].endswith(
-                            file_name
-                        )
-                    ]
-                )
-            else:
-                titles_set = set(
-                    [
-                        document.page_content.split("\n")[0]
-                        for document in self.documents
-                    ]
-                )
-        elif self.vector_store:
+        # if self.documents:
+        #     # Get titles from documents
+        #     if file_name:
+        #         titles_set = set(
+        #             [
+        #                 doc.page_content.split("\n")[0]
+        #                 for doc in self.documents
+        #                 if os.path.splitext(doc.metadata.get("source", ""))[0].endswith(
+        #                     file_name
+        #                 )
+        #             ]
+        #         )
+        #     else:
+        #         titles_set = set(
+        #             [
+        #                 document.page_content.split("\n")[0]
+        #                 for document in self.documents
+        #             ]
+        #         )
+        if self.vector_store:
             # Get titles from vector store
             # For Chroma:
             if hasattr(self.vector_store, "get"):
@@ -122,7 +122,7 @@ class RAG:
             else:
                 raise ValueError("Unsupported vector store type")
         else:
-            raise ValueError("No documents or vector store available")
+            raise ValueError("No vector store available")
 
         return list(titles_set)
 
