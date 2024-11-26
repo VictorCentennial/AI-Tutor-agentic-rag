@@ -11,7 +11,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
   const [isEmbeddingsLoading, setIsEmbeddingsLoading] = React.useState(false);
 
   // States for the topic
-  const [topic, setTopic] = useState("");
+  const [selectedTopic, setSelectedTopic] = useState("");
   const [topics, setTopics] = useState([]);
 
   useEffect(() => {
@@ -42,7 +42,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
         const response = await fetch(`/api/get-topics?folder=${selectedFolder}`);
         const data = await response.json();
         setTopics(data.topics);
-        setTopic(""); // Reset selected topic
+        setSelectedTopic(""); // Reset selected topic
       } catch (error) {
         console.error('Error fetching topics:', error);
       }
@@ -52,7 +52,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
   }, [selectedFolder]);
 
   const handleStart = () => {
-    onStartTutoring(selectedFolder, duration, topic);
+    onStartTutoring(selectedFolder, duration, selectedTopic);
   };
 
 
@@ -126,8 +126,8 @@ function TutorStart({ onStartTutoring, isLoading }) {
                   <Form.Group className="mb-3">
                     <Form.Label>Select Topic (Optional)</Form.Label>
                     <Form.Select
-                      value={topic}
-                      onChange={(e) => setTopic(e.target.value)}
+                      value={selectedTopic}
+                      onChange={(e) => setSelectedTopic(e.target.value)}
                       disabled={!selectedFolder}
                     >
                       <option value="">
