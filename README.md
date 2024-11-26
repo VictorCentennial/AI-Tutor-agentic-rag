@@ -14,7 +14,7 @@ An intelligent tutoring system that uses Retrieval-Augmented Generation (RAG) an
 ```
 cd flask-server
 python -m venv venv
-venv/bin/Activate.ps1
+.\venv\Scripts\Activate.ps1
 ```
 
 2. Install dependencies:
