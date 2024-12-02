@@ -72,29 +72,28 @@ function TutorStart({ onStartTutoring, isLoading }) {
 
 
   return (
-    <div className="container mt-2">
-      {/* Preloader Page */}
-      {isLoading && (
-        <div className="preloader-overlay">
-          <div className="preloader-content">
-            <h3>Hi !! I am your Tutor for today..</h3>
-            <br />
-            <p>While I am getting ready, please take a moment to review the following guidelines:</p>
-            <p className="animated-text">1. Avoid asking irrelevant questions.</p>
-            <p className="animated-text delay-1">2. AI Tutor will ask follow-up questions—please answer them to continue.</p>
-            <p className="animated-text delay-2">3. Use the AI model for learning purposes, not for completing assignments.</p>
-            <p className="animated-text delay-3">4. Enjoy the learning process!</p>
-            <p className="animated-text delay-4">5. If you encounter any issues, try refreshing the page.</p>
-            <p className="animated-text delay-5">6. Stay focused on the topic—this will help you get the most out of your session.</p>
-            <p className="animated-text delay-6">7. Don&apos;t hesitate to ask for clarification if you don&apos;t understand something.</p>
-
-            <br />
-            <Spinner animation="border" role="status" />
-            <p>Loading, please wait...</p>
-
-          </div>
+<div className="container mt-2">
+  {/* Preloader Page */}
+  {isLoading && (
+    <div className="preloader-overlay">
+      <div className="preloader-content">
+        <h3>👋 Hi there! I'm your AI Tutor for today...</h3>
+        <br />
+        <p>I'm suiting up and gathering my AI superpowers 🦸‍♀️. Meanwhile, here are a few fun tips to prep for our session:</p>
+        <p className="animated-text">1. 🤔 Please avoid asking questions like, "What's the meaning of life?"</p>
+        <p className="animated-text delay-1">2. 📚 Be ready for follow-up questions</p>
+        <p className="animated-text delay-2">3. ✍️ Use me for learning, not for shortcuts (your brain will thank you!).</p>
+        <p className="animated-text delay-3">4. 👀 Stay on topic—it helps us stay sharp and focused.</p>
+        <p className="animated-text delay-4">5. 🤷‍♀️ If you're lost, just ask! I don't judge (I can't, I'm an AI).</p>
+        <br />
+        <div className="spinner-container">
+          <div className="spinner" />
         </div>
-      )}
+        <p>✨ Prepping your session, hang tight! ✨</p>
+      </div>
+    </div>
+  )}
+
 
       {/* Main Content */}
       {!isLoading && (

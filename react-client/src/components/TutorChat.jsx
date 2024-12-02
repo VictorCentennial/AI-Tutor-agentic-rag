@@ -104,21 +104,27 @@ function TutorChat() {
   };
 
   const formatTime = (timeInSeconds) => {
+    if (timeInSeconds <= 0) {
+      return "00:00"; // When time is zero or negative
+    }
     const minutes = Math.floor(timeInSeconds / 60);
     const seconds = timeInSeconds % 60;
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   };
-
+  
   return (
     <Container fluid className="mt-4 relative w-full">
-      {isTutoringStarted && (
-        <div
-          className={`absolute right-0 top-0 px-4 py-2 rounded-md text-right ${remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""
-            }`}
+    {isTutoringStarted && (
+      <div className="absolute right-0 top-0 px-4 py-2 rounded-md text-right">
+        <span>🕒 Time Left: </span>
+        <span
+          className={`${remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""}`}
         >
-          🕒 Time Left: {formatTime(remainingTime)}
-        </div>
-      )}
+          {formatTime(remainingTime)}
+        </span>
+      </div>
+    )}
+  
 
       {/* Pop-up Modal */}
       <Modal show={showWarning} onHide={() => setShowWarning(false)} centered>

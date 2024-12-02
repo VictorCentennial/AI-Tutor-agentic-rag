@@ -130,7 +130,7 @@ code {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
+  background: linear-gradient(135deg, #1f1c2c, #928dab);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -141,6 +141,7 @@ code {
 
 .preloader-content {
   text-align: center;
+  animation: zoomIn 0.8s ease-out forwards;
 }
 
 .animated-text {
@@ -176,8 +177,40 @@ code {
   0% {
     opacity: 0;
   }
-
   100% {
+    opacity: 1;
+  }
+}
+
+.spinner-container {
+  margin: 20px auto;
+}
+
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.101);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
     opacity: 1;
   }
 }

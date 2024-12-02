@@ -104,7 +104,7 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState,
   return (
     <div className="flex-grow-1">
       <Row className="mt-4">
-        <Col xs={12} md={6} className="mb-3">
+        <Col xs={12} md={8} className="mb-3">
           <div className="interaction-box" ref={interactionBoxRef}>
             <h5>User and AI Interaction</h5>
             {aiMessages.map((msg, index) => (
@@ -136,17 +136,17 @@ function TutorInteraction({ aiMessages, llmPrompt, onSend, isLoading, nextState,
         </Col>
 
 
-        <Col xs={12} md={6} className="mb-3">
+        <Col xs={12} md={4} className="mb-3">
           <div className="prompt-box">
-            <div className="session-info mb-4">
+            <div className="session-info mb-4 mt-4">
               <div className="course-title">
                 <span className="label">Course:</span>
-                <h1>{selectedFolder}</h1>
+                <h6>{selectedFolder}</h6>
               </div>
 
-              <div className="topic-title">
+              <div className="topic-title mt-5">
                 <span className="label">Topic:</span>
-                <h2>{selectedTopic || "All Topics"}</h2>
+                <h6>{selectedTopic || "All Topics"}</h6>
               </div>
             </div>
             {debugMode && (
