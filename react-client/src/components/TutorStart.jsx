@@ -9,6 +9,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
   const [selectedFolder, setSelectedFolder] = useState("");
   const [folderLoading, setFolderLoading] = useState(true);
   const [isEmbeddingsLoading, setIsEmbeddingsLoading] = React.useState(false);
+  const [currentWeek, setCurrentWeek] = useState(1);
 
   // States for the topic
   const [selectedTopic, setSelectedTopic] = useState("");
@@ -52,7 +53,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
   }, [selectedFolder]);
 
   const handleStart = () => {
-    onStartTutoring(selectedFolder, duration, selectedTopic);
+    onStartTutoring(selectedFolder, duration, selectedTopic, currentWeek);
   };
 
 
@@ -101,6 +102,17 @@ function TutorStart({ onStartTutoring, isLoading }) {
           <Card.Title className="text-center mb-3">Start Your Tutoring Session</Card.Title>
           <Card.Body>
             <Form>
+              <Form.Group className="mb-3">
+                <Form.Label>Current Week</Form.Label>
+                <Form.Control
+                  type="number"
+                  min="1"
+                  max="14"
+                  step="1"
+                  value={currentWeek}
+                  onChange={(e) => setCurrentWeek(parseInt(e.target.value))}
+                />
+              </Form.Group>
               <Row>
                 <Col>
                   <Form.Group className="mb-2">
