@@ -148,24 +148,42 @@ def get_folders():
 def get_topics():
     try:
         folder_name = request.args.get("folder")
+        current_week = request.args.get("current_week")
         if not folder_name:
             return jsonify({"error": "No folder specified"}), 400
+
+        if not current_week:
+            return jsonify({"error": "No current week specified"}), 400
+
+        try:
+            current_week = int(current_week)
+        except ValueError:
+            return jsonify({"error": "Invalid current week value"}), 400
 
         folder_path = os.path.join("course_material", folder_name)
         if not os.path.exists(folder_path):
             return jsonify({"error": "Folder not found"}), 404
 
         # Get all files in the folder
-        topics = [
-            f
-            for f in os.listdir(folder_path)
-            if os.path.isfile(os.path.join(folder_path, f))
-        ]
+        topics_uptil_current_week = []
+        for week in range(1, current_week + 1):
+            week_path = os.path.join(folder_path, str(week))
+            week_topics = os.listdir(week_path)
+            topics_with_path = [f"{week}\{topic}" for topic in week_topics]
+            topics_uptil_current_week.extend(topics_with_path)
+
+        # topics = [
+        #     f
+        #     for f in os.listdir(folder_path)
+        #     if os.path.isfile(os.path.join(folder_path, f))
+        # ]
 
         # Remove file extensions if desired
-        topics = sorted([os.path.splitext(f)[0] for f in topics])
+        topics_uptil_current_week = sorted(
+            [os.path.splitext(f)[0] for f in topics_uptil_current_week]
+        )
 
-        return jsonify({"topics": topics})
+        return jsonify({"topics": topics_uptil_current_week})
     except Exception as e:
         logging.error(f"Error in get_topics: {str(e)}")
         return jsonify({"error": str(e)}), 500
