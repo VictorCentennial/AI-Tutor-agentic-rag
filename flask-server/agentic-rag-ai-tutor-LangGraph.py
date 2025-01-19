@@ -206,16 +206,15 @@ def update_vector_store():
 @app.route("/start-tutoring", methods=["POST"])
 def start_tutoring():
     data = request.json
-    # subject = data.get("subject", "Java")
-    # topic = data.get("topic", "Polymorphism in Java")
     duration = data.get("duration", 30)
     folder_name = data.get("folder_name")  # Get the selected folder from request
     topic = data.get("topic")
+    current_week = data.get("current_week")
     if not folder_name:
         return jsonify({"error": "No folder selected"}), 400
 
     folder_path = os.path.join("course_material", folder_name)
-    vector_store_path = os.path.join("vector_store", folder_name)
+    # vector_store_path = os.path.join("vector_store", folder_name)
 
     if not os.path.exists(folder_path):
         return jsonify({"error": "Selected folder not found"}), 404
@@ -225,24 +224,43 @@ def start_tutoring():
     # print(f"vector_store_path: {vector_store_path}")
     # print(f"folder_path: {folder_path}")
 
-    # check if vector store exists
-    if not os.path.exists(vector_store_path):
-        # through embedding
-        embed_documents(folder_path, vector_store_path)
-    # load from saved vector store
-    vector_store = load_vector_store(vector_store_path)
+    vector_store = None
+    vector_store_paths = []
 
-    # logging.debug(f"Loading documents from: {folder_path}")
-    # documents = rag.load_documents(folder_path)
-    # logging.debug(f"Documents loaded")
+    for week in range(1, int(current_week) + 1):
+        logging.info(f"Processing week {week}")
+        vector_store_path_week = os.path.join("vector_store", folder_name, str(week))
+        folder_path_week = os.path.join("course_material", folder_name, str(week))
+        if not os.path.exists(folder_path_week):
+            logging.error(f"Week {week} Folder not found: {folder_path_week}")
+            # create empty folder
+            os.makedirs(folder_path_week)
+            continue
+        # if the folder is empty, ignore that week
+        if not os.listdir(folder_path_week):
+            logging.info(f"Week {week} Folder is empty: {folder_path_week}")
+            continue
+        # check if the vector store exists, if not, embed the documents and create it
+        if not os.path.exists(vector_store_path_week):
+            embed_documents(folder_path_week, vector_store_path_week)
+            logging.info(
+                f"Vector store created for week {week}: {vector_store_path_week}"
+            )
+        vector_store_paths.append(vector_store_path_week)
 
-    # logging.debug(f"Embedding documents")
-    # vector_store = rag.embed_documents()
-
-    # rag.save_vector_store(vector_store_path)
+    # merge all vector stores
+    if len(vector_store_paths) > 0:
+        logging.info(f"Merging vector stores for folder {folder_name}")
+        logging.info(f"Vector store paths: {vector_store_paths}")
+        vector_store = load_vector_store(vector_store_paths)
+    else:
+        logging.error(f"No vector stores found for folder {folder_name}")
+        return jsonify({"error": "No vector stores found for folder"}), 404
 
     # logging.debug(f"Vector store created: {vector_store}")
     if topic != "All topics":
+        topic = topic.split("\\", 2)[1]
+        logging.info(f"Topic Selected: {topic}")
         titles = rag.get_titles(topic)
     else:
         titles = rag.get_titles()
@@ -262,7 +280,6 @@ def start_tutoring():
 
     initial_input = {
         "subject": folder_name,
-        # "topic": topic,
         "titles": titles,
         "summary": "",
         "messages": [],
