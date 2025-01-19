@@ -40,7 +40,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
       }
 
       try {
-        const response = await fetch(`/api/get-topics?folder=${selectedFolder}`);
+        const response = await fetch(`/api/get-topics?folder=${selectedFolder}&current_week=${currentWeek}`);
         const data = await response.json();
         setTopics(data.topics);
         setSelectedTopic(""); // Reset selected topic
@@ -50,7 +50,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
     };
 
     fetchTopics();
-  }, [selectedFolder]);
+  }, [selectedFolder, currentWeek]);
 
   const handleStart = () => {
     onStartTutoring(selectedFolder, duration, selectedTopic, currentWeek);
@@ -71,29 +71,33 @@ function TutorStart({ onStartTutoring, isLoading }) {
     setIsEmbeddingsLoading(false);
   }
 
+  const topicDisplay = (topic) => {
+    const topic_split = topic.split("\\", 2);
+    return `Week ${topic_split[0]} - ${topic_split[1]}`
+  }
 
   return (
-<div className="container mt-2">
-  {/* Preloader Page */}
-  {isLoading && (
-    <div className="preloader-overlay">
-      <div className="preloader-content">
-        <h3>👋 Hi there! I'm your AI Tutor for today...</h3>
-        <br />
-        <p>I'm suiting up and gathering my AI superpowers 🦸‍♀️. Meanwhile, here are a few fun tips to prep for our session:</p>
-        <p className="animated-text">1. 🤔 Please avoid asking questions like, "What's the meaning of life?"</p>
-        <p className="animated-text delay-1">2. 📚 Be ready for follow-up questions</p>
-        <p className="animated-text delay-2">3. ✍️ Use me for learning, not for shortcuts (your brain will thank you!).</p>
-        <p className="animated-text delay-3">4. 👀 Stay on topic—it helps us stay sharp and focused.</p>
-        <p className="animated-text delay-4">5. 🤷‍♀️ If you're lost, just ask! I don't judge (I can't, I'm an AI).</p>
-        <br />
-        <div className="spinner-container">
-          <div className="spinner" />
+    <div className="container mt-2">
+      {/* Preloader Page */}
+      {isLoading && (
+        <div className="preloader-overlay">
+          <div className="preloader-content">
+            <h3>👋 Hi there! I'm your AI Tutor for today...</h3>
+            <br />
+            <p>I'm suiting up and gathering my AI superpowers 🦸‍♀️. Meanwhile, here are a few fun tips to prep for our session:</p>
+            <p className="animated-text">1. 🤔 Please avoid asking questions like, "What's the meaning of life?"</p>
+            <p className="animated-text delay-1">2. 📚 Be ready for follow-up questions</p>
+            <p className="animated-text delay-2">3. ✍️ Use me for learning, not for shortcuts (your brain will thank you!).</p>
+            <p className="animated-text delay-3">4. 👀 Stay on topic—it helps us stay sharp and focused.</p>
+            <p className="animated-text delay-4">5. 🤷‍♀️ If you're lost, just ask! I don't judge (I can't, I'm an AI).</p>
+            <br />
+            <div className="spinner-container">
+              <div className="spinner" />
+            </div>
+            <p>✨ Prepping your session, hang tight! ✨</p>
+          </div>
         </div>
-        <p>✨ Prepping your session, hang tight! ✨</p>
-      </div>
-    </div>
-  )}
+      )}
 
 
       {/* Main Content */}
@@ -148,7 +152,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
                       </option>
                       {topics.map((topicName) => (
                         <option key={topicName} value={topicName}>
-                          {topicName}
+                          {topicDisplay(topicName)}
                         </option>
                       ))}
                     </Form.Select>
