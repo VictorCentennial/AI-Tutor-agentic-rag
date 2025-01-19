@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Type
+from pathlib import Path
+from typing import List, Optional, Type, Union
 from langchain.embeddings.base import Embeddings
 from langchain.schema import Document
 from langchain.text_splitter import TextSplitter
@@ -66,6 +67,20 @@ class RAG:
         self.vector_store.save_local(folder_path)
 
     def get_titles(self, file_name: Optional[str] = None) -> List[str]:
+        """
+        Get the titles of the documents in the vector store.
+
+        Args:
+            file_name (Optional[str], optional): Get the titles of the documents with this file name (extension not included). Defaults to None.
+
+        Raises:
+            ValueError: If no vector store is available.
+            ValueError: If no documents are loaded.
+
+        Returns:
+            List[str]: The titles of the documents in the vector store.
+        """
+
         # if self.documents:
         #     # Get titles from documents
         #     if file_name:
