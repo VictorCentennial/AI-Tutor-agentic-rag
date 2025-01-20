@@ -29,7 +29,6 @@ TOTAL_WEEKS = 14
 
 thread_ids = []
 
-
 # Function to load document content using LangChain
 # def load_document_content(file_path):
 #     try:
@@ -216,8 +215,31 @@ def update_vector_store():
     folder_name = data.get("folder_name")
     folder_path = os.path.join("course_material", folder_name)
     vector_store_path = os.path.join("vector_store", folder_name)
+    # create vector store folder if it doesn't exist
+    if not os.path.exists(vector_store_path):
+        os.makedirs(vector_store_path)
     try:
-        embed_documents(folder_path, vector_store_path)
+        for week in range(1, TOTAL_WEEKS + 1):
+            # create folder for each week if it doesn't exist
+            folder_path_week = os.path.join(folder_path, str(week))
+            if not os.path.exists(folder_path_week):
+                os.makedirs(folder_path_week)
+                continue
+            # create vector store for each week if it doesn't exist
+            vector_store_path_week = os.path.join(vector_store_path, str(week))
+            if not os.path.exists(vector_store_path_week):
+                os.makedirs(vector_store_path_week)
+            # if the folder is empty, ignore that week
+            if not os.listdir(folder_path_week):
+                continue
+            # remove existing files inside vector store if it exists
+            if os.path.exists(vector_store_path_week):
+                for file in os.listdir(vector_store_path_week):
+                    os.remove(os.path.join(vector_store_path_week, file))
+            # embed documents for each week
+            embed_documents(folder_path_week, vector_store_path_week)
+            logging.info(f"Course {folder_name} Week {week} vector store created")
+
         return jsonify({"message": f"Vector store for folder {folder_name} updated"})
     except Exception as e:
         logging.error(f"Error in update_vector_store: {str(e)}")
