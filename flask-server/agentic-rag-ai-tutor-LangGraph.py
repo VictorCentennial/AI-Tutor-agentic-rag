@@ -24,6 +24,9 @@ CORS(app)  # Enable CORS for all routes
 # Set up logging for debugging
 logging.basicConfig(level=logging.DEBUG)
 
+# constants
+TOTAL_WEEKS = 14
+
 thread_ids = []
 
 
