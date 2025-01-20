@@ -169,7 +169,7 @@ def get_topics():
         for week in range(1, current_week + 1):
             week_path = os.path.join(folder_path, str(week))
             week_topics = os.listdir(week_path)
-            topics_with_path = [f"{week}\{topic}" for topic in week_topics]
+            topics_with_path = [rf"{week}\{topic}" for topic in week_topics]
             topics_uptil_current_week.extend(topics_with_path)
 
         # topics = [
