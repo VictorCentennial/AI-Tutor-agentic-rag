@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Container, Modal } from "react-bootstrap";
+import { Container, Modal, DropdownButton, Dropdown } from "react-bootstrap";
 import TutorStart from "./TutorStart";
 import TutorInteraction from "./TutorInteraction";
 import axios from "axios";
@@ -14,10 +14,11 @@ function TutorChat() {
   const [nextState, setNextState] = useState("");
   const [remainingTime, setRemainingTime] = useState(0); // State for remaining time in seconds
   const [showWarning, setShowWarning] = useState(false); // State for pop-up visibility
+  const [showExtensionOptions, setShowExtensionOptions] = useState(false); // New state to manage dropdown visibility
+  const [selectedExtensionTime, setSelectedExtensionTime] = useState(0); // State for selected extension time
 
   const [selectedFolder, setSelectedFolder] = useState("");
   const [selectedTopic, setSelectedTopic] = useState("");
-
 
   useEffect(() => {
     if (isTutoringStarted && remainingTime >= 0) {
@@ -111,20 +112,35 @@ function TutorChat() {
     const seconds = timeInSeconds % 60;
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   };
-  
+
+  // Modified extendSession function
+  const extendSession = () => {
+    if (selectedExtensionTime > 0) {
+      setRemainingTime((prevTime) => prevTime + selectedExtensionTime * 60);
+      setShowWarning(false);
+      setShowExtensionOptions(false);
+    }
+  };
+
+  // Helper function to get dropdown title
+  const getDropdownTitle = () => {
+    return selectedExtensionTime > 0 
+      ? `Extend by ${selectedExtensionTime} min` 
+      : "Extend Session";
+  };
+
   return (
     <Container fluid className="mt-4 relative w-full">
-    {isTutoringStarted && (
-      <div className="absolute right-0 top-0 px-4 py-2 rounded-md text-right">
-        <span>🕒 Time Left: </span>
-        <span
-          className={`${remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""}`}
-        >
-          {formatTime(remainingTime)}
-        </span>
-      </div>
-    )}
-  
+      {isTutoringStarted && (
+        <div className="absolute right-0 top-0 px-4 py-2 rounded-md text-right">
+          <span>🕒 Time Left: </span>
+          <span
+            className={`${remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""}`}
+          >
+            {formatTime(remainingTime)}
+          </span>
+        </div>
+      )}
 
       {/* Pop-up Modal */}
       <Modal show={showWarning} onHide={() => setShowWarning(false)} centered>
@@ -132,15 +148,32 @@ function TutorChat() {
           <Modal.Title>Session Ending Soon</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Only 5 minutes are left in your session. Please wrap up your work.
+          Only 5 minutes are left in your session. Do you want to extend it?
         </Modal.Body>
         <Modal.Footer>
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowWarning(false)}
-          >
-            OK
+          <button className="btn btn-secondary" onClick={() => setShowWarning(false)}>
+            Cancel
           </button>
+
+          {/* Modified DropdownButton to show selection in title */}
+          <DropdownButton
+            variant="primary"
+            title={getDropdownTitle()}
+            onSelect={(time) => setSelectedExtensionTime(Number(time))}
+            show={showExtensionOptions}
+            onToggle={() => setShowExtensionOptions(!showExtensionOptions)}
+          >
+            <Dropdown.Item eventKey="5">Extend by 5 min</Dropdown.Item>
+            <Dropdown.Item eventKey="15">Extend by 15 min</Dropdown.Item>
+            <Dropdown.Item eventKey="30">Extend by 30 min</Dropdown.Item>
+          </DropdownButton>
+
+          {/* Button to apply extension */}
+          {selectedExtensionTime > 0 && (
+            <button className="btn btn-primary" onClick={extendSession}>
+              Apply Extension
+            </button>
+          )}
         </Modal.Footer>
       </Modal>
 
@@ -155,11 +188,11 @@ function TutorChat() {
           nextState={nextState}
           selectedFolder={selectedFolder}
           selectedTopic={selectedTopic}
+          threadId={threadId}
         />
       )}
     </Container>
   );
-
 }
 
 export default TutorChat;
