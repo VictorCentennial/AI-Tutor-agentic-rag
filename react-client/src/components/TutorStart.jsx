@@ -3,7 +3,11 @@ import { Card, Form, Button, Spinner, Row, Col } from "react-bootstrap";
 import PropTypes from 'prop-types';
 import axios from "axios";
 
+
+
 function TutorStart({ onStartTutoring, isLoading }) {
+
+
   const [duration, setDuration] = useState(30);
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState("");
@@ -15,6 +19,14 @@ function TutorStart({ onStartTutoring, isLoading }) {
   const [selectedTopic, setSelectedTopic] = useState("ALL");
   const [topics, setTopics] = useState([]);
 
+  const semesterStartDate = import.meta.env.VITE_SEMESTER_START_DATE;
+  const totalWeeks = import.meta.env.VITE_TOTAL_WEEKS || 14;
+  const calculatedCurrentWeek = semesterStartDate ? Math.floor((new Date() - new Date(semesterStartDate)) / (7 * 24 * 60 * 60 * 1000)) + 1 : 1;
+  const debugMode = import.meta.env.VITE_DEBUG_MODE === 'true';
+
+  const weekAutoSet = !debugMode && semesterStartDate && calculatedCurrentWeek < totalWeeks;
+
+
   useEffect(() => {
     const fetchFolders = async () => {
       try {
@@ -22,6 +34,9 @@ function TutorStart({ onStartTutoring, isLoading }) {
         const data = await response.json();
         setFolders(data.folders);
         setSelectedFolder("");
+        if (weekAutoSet) {
+          setCurrentWeek(calculatedCurrentWeek);
+        }
       } catch (error) {
         console.error('Error fetching folders:', error);
       } finally {
@@ -30,7 +45,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
     };
 
     fetchFolders();
-  }, []);
+  }, [calculatedCurrentWeek, weekAutoSet]);
 
   useEffect(() => {
     const fetchTopics = async () => {
@@ -112,10 +127,11 @@ function TutorStart({ onStartTutoring, isLoading }) {
                 <Form.Control
                   type="number"
                   min="1"
-                  max="14"
+                  max={totalWeeks}
                   step="1"
                   value={currentWeek}
                   onChange={(e) => setCurrentWeek(parseInt(e.target.value))}
+                  disabled={weekAutoSet}
                 />
               </Form.Group>
               <Row>
