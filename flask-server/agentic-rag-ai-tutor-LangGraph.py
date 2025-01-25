@@ -301,7 +301,8 @@ def start_tutoring():
         return jsonify({"error": "No vector stores found for folder"}), 404
 
     # logging.debug(f"Vector store created: {vector_store}")
-    if topic != "All topics":
+
+    if topic != "ALL":
         topic = topic.split("\\", 2)[1]
         logging.info(f"Topic Selected: {topic}")
         titles = rag.get_titles(topic)

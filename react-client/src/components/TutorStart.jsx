@@ -12,7 +12,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
   const [currentWeek, setCurrentWeek] = useState(1);
 
   // States for the topic
-  const [selectedTopic, setSelectedTopic] = useState("");
+  const [selectedTopic, setSelectedTopic] = useState("ALL");
   const [topics, setTopics] = useState([]);
 
   useEffect(() => {
@@ -36,6 +36,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
     const fetchTopics = async () => {
       if (!selectedFolder) {
         setTopics([]);
+        setSelectedTopic("ALL"); // Reset to "ALL" when folder changes
         return;
       }
 
@@ -43,7 +44,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
         const response = await fetch(`/api/get-topics?folder=${selectedFolder}&current_week=${currentWeek}`);
         const data = await response.json();
         setTopics(data.topics);
-        setSelectedTopic(""); // Reset selected topic
+        setSelectedTopic("ALL"); // Reset to "ALL" when topics update
       } catch (error) {
         console.error('Error fetching topics:', error);
       }
@@ -145,16 +146,18 @@ function TutorStart({ onStartTutoring, isLoading }) {
                       onChange={(e) => setSelectedTopic(e.target.value)}
                       disabled={!selectedFolder}
                     >
-                      <option value="">
-                        {!selectedFolder
-                          ? "First select a course"
-                          : "All topics"}
-                      </option>
-                      {topics.map((topicName) => (
-                        <option key={topicName} value={topicName}>
-                          {topicDisplay(topicName)}
-                        </option>
-                      ))}
+                      {!selectedFolder ? (
+                        <option value="">First select a course</option>
+                      ) : (
+                        <>
+                          <option value="ALL">All topics</option>
+                          {topics.map((topicName) => (
+                            <option key={topicName} value={topicName}>
+                              {topicDisplay(topicName)}
+                            </option>
+                          ))}
+                        </>
+                      )}
                     </Form.Select>
                   </Form.Group>
                 </Col>
