@@ -3,16 +3,29 @@ import { Card, Form, Button, Spinner, Row, Col } from "react-bootstrap";
 import PropTypes from 'prop-types';
 import axios from "axios";
 
+
+
 function TutorStart({ onStartTutoring, isLoading }) {
+
+
   const [duration, setDuration] = useState(30);
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState("");
   const [folderLoading, setFolderLoading] = useState(true);
   const [isEmbeddingsLoading, setIsEmbeddingsLoading] = React.useState(false);
+  const [currentWeek, setCurrentWeek] = useState(1);
 
   // States for the topic
-  const [selectedTopic, setSelectedTopic] = useState("");
+  const [selectedTopic, setSelectedTopic] = useState("ALL");
   const [topics, setTopics] = useState([]);
+
+  const semesterStartDate = import.meta.env.VITE_SEMESTER_START_DATE;
+  const totalWeeks = import.meta.env.VITE_TOTAL_WEEKS || 14;
+  const calculatedCurrentWeek = semesterStartDate ? Math.floor((new Date() - new Date(semesterStartDate)) / (7 * 24 * 60 * 60 * 1000)) + 1 : 1;
+  const debugMode = import.meta.env.VITE_DEBUG_MODE === 'true';
+
+  const weekAutoSet = !debugMode && semesterStartDate && calculatedCurrentWeek < totalWeeks;
+
 
   useEffect(() => {
     const fetchFolders = async () => {
@@ -21,6 +34,9 @@ function TutorStart({ onStartTutoring, isLoading }) {
         const data = await response.json();
         setFolders(data.folders);
         setSelectedFolder("");
+        if (weekAutoSet) {
+          setCurrentWeek(calculatedCurrentWeek);
+        }
       } catch (error) {
         console.error('Error fetching folders:', error);
       } finally {
@@ -29,30 +45,31 @@ function TutorStart({ onStartTutoring, isLoading }) {
     };
 
     fetchFolders();
-  }, []);
+  }, [calculatedCurrentWeek, weekAutoSet]);
 
   useEffect(() => {
     const fetchTopics = async () => {
       if (!selectedFolder) {
         setTopics([]);
+        setSelectedTopic("ALL"); // Reset to "ALL" when folder changes
         return;
       }
 
       try {
-        const response = await fetch(`/api/get-topics?folder=${selectedFolder}`);
+        const response = await fetch(`/api/get-topics?folder=${selectedFolder}&current_week=${currentWeek}`);
         const data = await response.json();
         setTopics(data.topics);
-        setSelectedTopic(""); // Reset selected topic
+        setSelectedTopic("ALL"); // Reset to "ALL" when topics update
       } catch (error) {
         console.error('Error fetching topics:', error);
       }
     };
 
     fetchTopics();
-  }, [selectedFolder]);
+  }, [selectedFolder, currentWeek]);
 
   const handleStart = () => {
-    onStartTutoring(selectedFolder, duration, selectedTopic);
+    onStartTutoring(selectedFolder, duration, selectedTopic, currentWeek);
   };
 
 
@@ -70,29 +87,33 @@ function TutorStart({ onStartTutoring, isLoading }) {
     setIsEmbeddingsLoading(false);
   }
 
+  const topicDisplay = (topic) => {
+    const topic_split = topic.split("\\", 2);
+    return `Week ${topic_split[0]} - ${topic_split[1]}`
+  }
 
   return (
-<div className="container mt-2">
-  {/* Preloader Page */}
-  {isLoading && (
-    <div className="preloader-overlay">
-      <div className="preloader-content">
-        <h3>👋 Hi there! I'm your AI Tutor for today...</h3>
-        <br />
-        <p>I'm suiting up and gathering my AI superpowers 🦸‍♀️. Meanwhile, here are a few fun tips to prep for our session:</p>
-        <p className="animated-text">1. 🤔 Please avoid asking questions like, "What's the meaning of life?"</p>
-        <p className="animated-text delay-1">2. 📚 Be ready for follow-up questions</p>
-        <p className="animated-text delay-2">3. ✍️ Use me for learning, not for shortcuts (your brain will thank you!).</p>
-        <p className="animated-text delay-3">4. 👀 Stay on topic—it helps us stay sharp and focused.</p>
-        <p className="animated-text delay-4">5. 🤷‍♀️ If you're lost, just ask! I don't judge (I can't, I'm an AI).</p>
-        <br />
-        <div className="spinner-container">
-          <div className="spinner" />
+    <div className="container mt-2">
+      {/* Preloader Page */}
+      {isLoading && (
+        <div className="preloader-overlay">
+          <div className="preloader-content">
+            <h3>👋 Hi there! I'm your AI Tutor for today...</h3>
+            <br />
+            <p>I'm suiting up and gathering my AI superpowers 🦸‍♀️. Meanwhile, here are a few fun tips to prep for our session:</p>
+            <p className="animated-text">1. 🤔 Please avoid asking questions like, "What's the meaning of life?"</p>
+            <p className="animated-text delay-1">2. 📚 Be ready for follow-up questions</p>
+            <p className="animated-text delay-2">3. ✍️ Use me for learning, not for shortcuts (your brain will thank you!).</p>
+            <p className="animated-text delay-3">4. 👀 Stay on topic—it helps us stay sharp and focused.</p>
+            <p className="animated-text delay-4">5. 🤷‍♀️ If you're lost, just ask! I don't judge (I can't, I'm an AI).</p>
+            <br />
+            <div className="spinner-container">
+              <div className="spinner" />
+            </div>
+            <p>✨ Prepping your session, hang tight! ✨</p>
+          </div>
         </div>
-        <p>✨ Prepping your session, hang tight! ✨</p>
-      </div>
-    </div>
-  )}
+      )}
 
 
       {/* Main Content */}
@@ -101,6 +122,18 @@ function TutorStart({ onStartTutoring, isLoading }) {
           <Card.Title className="text-center mb-3">Start Your Tutoring Session</Card.Title>
           <Card.Body>
             <Form>
+              <Form.Group className="mb-3">
+                <Form.Label>Current Week</Form.Label>
+                <Form.Control
+                  type="number"
+                  min="1"
+                  max={totalWeeks}
+                  step="1"
+                  value={currentWeek}
+                  onChange={(e) => setCurrentWeek(parseInt(e.target.value))}
+                  disabled={weekAutoSet}
+                />
+              </Form.Group>
               <Row>
                 <Col>
                   <Form.Group className="mb-2">
@@ -129,16 +162,18 @@ function TutorStart({ onStartTutoring, isLoading }) {
                       onChange={(e) => setSelectedTopic(e.target.value)}
                       disabled={!selectedFolder}
                     >
-                      <option value="">
-                        {!selectedFolder
-                          ? "First select a course"
-                          : "All topics"}
-                      </option>
-                      {topics.map((topicName) => (
-                        <option key={topicName} value={topicName}>
-                          {topicName}
-                        </option>
-                      ))}
+                      {!selectedFolder ? (
+                        <option value="">First select a course</option>
+                      ) : (
+                        <>
+                          <option value="ALL">All topics</option>
+                          {topics.map((topicName) => (
+                            <option key={topicName} value={topicName}>
+                              {topicDisplay(topicName)}
+                            </option>
+                          ))}
+                        </>
+                      )}
                     </Form.Select>
                   </Form.Group>
                 </Col>

@@ -40,7 +40,7 @@ function TutorChat() {
     }
   }, [remainingTime, isTutoringStarted]);
 
-  const handleStartTutoring = async (selectedFolder, selectedDuration, selectedTopic) => {
+  const handleStartTutoring = async (selectedFolder, selectedDuration, selectedTopic, currentWeek) => {
     try {
       setIsLoading(true);
       setSelectedFolder(selectedFolder);
@@ -49,6 +49,7 @@ function TutorChat() {
         folder_name: selectedFolder,
         duration: selectedDuration,
         topic: selectedTopic,
+        current_week: currentWeek,
       });
       setIsLoading(false);
 
@@ -111,20 +112,20 @@ function TutorChat() {
     const seconds = timeInSeconds % 60;
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   };
-  
+
   return (
     <Container fluid className="mt-4 relative w-full">
-    {isTutoringStarted && (
-      <div className="absolute right-0 top-0 px-4 py-2 rounded-md text-right">
-        <span>🕒 Time Left: </span>
-        <span
-          className={`${remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""}`}
-        >
-          {formatTime(remainingTime)}
-        </span>
-      </div>
-    )}
-  
+      {isTutoringStarted && (
+        <div className="absolute right-0 top-0 px-4 py-2 rounded-md text-right">
+          <span>🕒 Time Left: </span>
+          <span
+            className={`${remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""}`}
+          >
+            {formatTime(remainingTime)}
+          </span>
+        </div>
+      )}
+
 
       {/* Pop-up Modal */}
       <Modal show={showWarning} onHide={() => setShowWarning(false)} centered>
