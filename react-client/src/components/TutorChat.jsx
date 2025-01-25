@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Container, Modal, DropdownButton, Dropdown, Button} from "react-bootstrap";
+import { Container, Modal, DropdownButton, Dropdown, Button } from "react-bootstrap";
 import TutorStart from "./TutorStart";
 import TutorInteraction from "./TutorInteraction";
 import axios from "axios";
@@ -62,7 +62,7 @@ function TutorChat() {
 
       setIsTutoringStarted(true);
       setRemainingTime(selectedDuration * 60);
-      
+
     } catch (error) {
       console.error("Error starting tutoring session:", error);
     }
@@ -129,15 +129,15 @@ function TutorChat() {
   };
 
   const getDropdownTitle = () => {
-    return selectedExtensionTime > 0 
-      ? `Extend by ${selectedExtensionTime} min` 
+    return selectedExtensionTime > 0
+      ? `Extend by ${selectedExtensionTime} min`
       : "Extend Session";
   };
 
   const formatMessageContent = (message) => {
     const formattedContent = [];
     const lines = message.split("\n");
-  
+
     lines.forEach((line, index) => {
       if (line.startsWith("**") && line.endsWith("**")) {
         // Heading
@@ -162,103 +162,102 @@ function TutorChat() {
         );
       }
     });
-  
+
     return <div>{formattedContent}</div>;
   };
   const handleDownloadSessionHistory = async () => {
     try {
-        console.log(threadId)
-        const response = await axios.post(
-            "api/download-session",
-            { thread_id: threadId },
-            { responseType: "blob" } // Ensure the response is treated as a file
-        );
+      console.log(threadId)
+      const response = await axios.post(
+        "api/download-session",
+        { thread_id: threadId },
+        { responseType: "blob" } // Ensure the response is treated as a file
+      );
 
-        const blob = new Blob([response.data], { type: response.headers["content-type"] || "text/plain" });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `session_${threadId}.txt`;
-        link.click();
-        window.URL.revokeObjectURL(url);
+      const blob = new Blob([response.data], { type: response.headers["content-type"] || "text/plain" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `session_${threadId}.txt`;
+      link.click();
+      window.URL.revokeObjectURL(url);
     } catch (error) {
-        console.error("Error downloading session history:", error);
+      console.error("Error downloading session history:", error);
     }
-};
+  };
 
-  
+
 
 
   return (
-<Container fluid className="mt-4 relative w-full">
-    {showSummaryScreen ? (
-      <div className="summary-screen flex items-center justify-center h-screen bg-gray-100">
-        <div className="p-6 bg-white shadow-lg rounded-2xl w-2/3">
-          <h1 className="text-2xl font-bold text-center mb-4">Summary of Session</h1>
-          {sessionSummary ? (
-            <div className="text-lg space-y-4">
-              <p>
-                <strong>Subject:</strong> {sessionSummary.subject}
-              </p>
-              <p>
-                <strong>Start Time:</strong> {sessionSummary.start_time}
-              </p>
-              <p>
-                <strong>End Time:</strong> {sessionSummary.end_time}
-              </p>
-              <div>
-                 <strong>Messages:</strong>
-                 <div className="mt-2 space-y-2">
-                   {sessionSummary.messages.length > 0 ? (
-                     <div
-                      className={`p-3 rounded-md ${
-                      sessionSummary.messages[sessionSummary.messages.length - 1].role === "AI"
-                      ? "bg-blue-50 border border-blue-300"
-                      : "bg-gray-50 border border-gray-300"
-                    }`}
-                   >
-                   <strong>{sessionSummary.messages[sessionSummary.messages.length - 1].role}:</strong>{" "}
-                   <div className="mt-2">
-                     {formatMessageContent(sessionSummary.messages[sessionSummary.messages.length - 1].content)}
-                   </div>
-                   </div>
-                   ) : (
-                 <p>No messages to display.</p>
-                   )}
-                 </div>
+    <Container fluid className="mt-4 relative w-full">
+      {showSummaryScreen ? (
+        <div className="summary-screen flex items-center justify-center h-screen bg-gray-100">
+          <div className="p-6 bg-white shadow-lg rounded-2xl w-2/3">
+            <h1 className="text-2xl font-bold text-center mb-4">Summary of Session</h1>
+            {sessionSummary ? (
+              <div className="text-lg space-y-4">
+                <p>
+                  <strong>Subject:</strong> {sessionSummary.subject}
+                </p>
+                <p>
+                  <strong>Start Time:</strong> {sessionSummary.start_time}
+                </p>
+                <p>
+                  <strong>End Time:</strong> {sessionSummary.end_time}
+                </p>
+                <div>
+                  <strong>Messages:</strong>
+                  <div className="mt-2 space-y-2">
+                    {sessionSummary.messages.length > 0 ? (
+                      <div
+                        className={`p-3 rounded-md ${sessionSummary.messages[sessionSummary.messages.length - 1].role === "AI"
+                            ? "bg-blue-50 border border-blue-300"
+                            : "bg-gray-50 border border-gray-300"
+                          }`}
+                      >
+                        <strong>{sessionSummary.messages[sessionSummary.messages.length - 1].role}:</strong>{" "}
+                        <div className="mt-2">
+                          {formatMessageContent(sessionSummary.messages[sessionSummary.messages.length - 1].content)}
+                        </div>
+                      </div>
+                    ) : (
+                      <p>No messages to display.</p>
+                    )}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <Button
+                    variant="primary"
+                    onClick={handleDownloadSessionHistory}
+                    className="mb-3"
+                  >
+                    Download Session history
+                  </Button>
+
+                </div>
+                <div className="text-center">
+                  <Button
+                    variant="primary"
+                    onClick={() => window.location.reload()}
+                    className="mb-3"
+                  >
+                    Start New Session
+                  </Button>
+
+                </div>
               </div>
-              <div  className="text-center">
-    <Button
-      variant="primary"
-      onClick={handleDownloadSessionHistory}
-      className="mb-3"
-    >
-      Download Session history
-    </Button>
 
-</div>
-              <div  className="text-center">
-    <Button
-      variant="primary"
-      onClick={() => window.location.reload()}
-      className="mb-3"
-    >
-      Start New Session
-    </Button>
-
-</div>
-            </div>
-            
-          ) : (
-            <p>No session summary available.</p>
-          )}
+            ) : (
+              <p>No session summary available.</p>
+            )}
+          </div>
         </div>
-      </div>
 
 
 
 
-    ) : (
+      ) : (
         <>
           {isTutoringStarted && (
             <div className="absolute right-0 top-0 px-4 py-2 rounded-md text-right">
