@@ -10,7 +10,7 @@ function TutorChat() {
   const [aiMessages, setAiMessages] = useState([]);
   const [llmPrompt, setLlmPrompt] = useState("");
   const [isTutoringStarted, setIsTutoringStarted] = useState(false);
-  const [threadId, setThreadId] = useState("");
+  const [threadId, setThreadId] = useState(null);
   const [nextState, setNextState] = useState("");
   const [remainingTime, setRemainingTime] = useState(0);
   const [showWarning, setShowWarning] = useState(false);
@@ -62,10 +62,13 @@ function TutorChat() {
 
       setIsTutoringStarted(true);
       setRemainingTime(selectedDuration * 60);
+      
     } catch (error) {
       console.error("Error starting tutoring session:", error);
     }
   };
+
+
 
   const handleSend = async (userMessage, AImessage = false) => {
     try {
@@ -162,6 +165,27 @@ function TutorChat() {
   
     return <div>{formattedContent}</div>;
   };
+  const handleDownloadSessionHistory = async () => {
+    try {
+        console.log(threadId)
+        const response = await axios.post(
+            "api/download-session",
+            { thread_id: threadId },
+            { responseType: "blob" } // Ensure the response is treated as a file
+        );
+
+        const blob = new Blob([response.data], { type: response.headers["content-type"] || "text/plain" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `session_${threadId}.txt`;
+        link.click();
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error("Error downloading session history:", error);
+    }
+};
+
   
 
 
@@ -206,7 +230,7 @@ function TutorChat() {
               <div  className="text-center">
     <Button
       variant="primary"
-      
+      onClick={handleDownloadSessionHistory}
       className="mb-3"
     >
       Download Session history

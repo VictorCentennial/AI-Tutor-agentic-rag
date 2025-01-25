@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 
 import logging
@@ -342,7 +342,7 @@ def save_session_history():
 
         # Create a filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"session_{timestamp}.txt"
+        filename = f"session_{thread_id}.txt"
         filepath = os.path.join(SESSION_HISTORY_DIR, filename)
 
         with open(filepath, "w") as file:
@@ -375,6 +375,27 @@ def save_session_history():
     except Exception as e:
         logging.error(f"Error in save_session_history: {str(e)}")
         return jsonify({"error": "Failed to save session", "details": str(e)}), 500
+
+@app.route("/download-session", methods=["POST"])
+def download_session_history():
+    SESSION_HISTORY_DIR = "saved_session_history"
+    try:
+        data = request.json
+        thread_id = data.get("thread_id")
+        filename = f"session_{thread_id}.txt"
+        # Use the latest file (if multiple matches)
+        file_path = os.path.join(SESSION_HISTORY_DIR, filename )
+
+        return send_file(
+            file_path,
+            mimetype="text/plain",
+            as_attachment=True,
+            download_name=os.path.basename(file_path)
+        )
+    except Exception as e:
+        logging.error(f"Error in download_session_history: {str(e)}")
+        return jsonify({"error": "Failed to download session history", "details": str(e)}), 500
+
 
 @app.route("/get-graph", methods=["GET"])
 def get_graph_image():
