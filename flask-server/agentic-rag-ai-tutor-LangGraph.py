@@ -326,7 +326,6 @@ def continue_tutoring():
 
 @app.route("/save-session", methods=["POST"])
 def save_session_history():
-    # Add these configurations
     SESSION_HISTORY_DIR = "saved_session_history"
     if not os.path.exists(SESSION_HISTORY_DIR):
         os.makedirs(SESSION_HISTORY_DIR)
@@ -340,9 +339,6 @@ def save_session_history():
         subject = state.values["subject"]
         start_time = state.values["start_time"]
         end_time = datetime.now()
-
-        # for message in message_history:
-        #     print(message.pretty_print())
 
         # Create a filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -362,16 +358,23 @@ def save_session_history():
                 header = f" {role} "
                 separator = "=" * ((80 - len(header)) // 2)
                 file.write(f"{separator}{header}{separator}\n")
-
-                # Write the message content
                 file.write(f"{message.content}\n\n")
 
-        return jsonify({"message": f"Session history saved to {filepath}"})
+        # Return session summary data in response
+        summary = {
+            "subject": subject,
+            "start_time": start_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "end_time": end_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "messages": [
+                {"role": "AI" if isinstance(msg, AIMessage) else "Human", "content": msg.content}
+                for msg in message_history
+            ],
+        }
+        return jsonify({"message": f"Session history saved to {filepath}", "summary": summary})
 
     except Exception as e:
         logging.error(f"Error in save_session_history: {str(e)}")
         return jsonify({"error": "Failed to save session", "details": str(e)}), 500
-
 
 @app.route("/get-graph", methods=["GET"])
 def get_graph_image():
