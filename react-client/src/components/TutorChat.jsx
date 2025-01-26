@@ -121,7 +121,6 @@ function TutorChat() {
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   };
 
-main
   const extendSession = () => {
     if (selectedExtensionTime > 0) {
       setRemainingTime((prevTime) => prevTime + selectedExtensionTime * 60);
@@ -214,8 +213,8 @@ main
                     {sessionSummary.messages.length > 0 ? (
                       <div
                         className={`p-3 rounded-md ${sessionSummary.messages[sessionSummary.messages.length - 1].role === "AI"
-                            ? "bg-blue-50 border border-blue-300"
-                            : "bg-gray-50 border border-gray-300"
+                          ? "bg-blue-50 border border-blue-300"
+                          : "bg-gray-50 border border-gray-300"
                           }`}
                       >
                         <strong>{sessionSummary.messages[sessionSummary.messages.length - 1].role}:</strong>{" "}
