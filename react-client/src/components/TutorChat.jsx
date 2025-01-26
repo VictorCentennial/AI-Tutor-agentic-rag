@@ -126,6 +126,10 @@ function TutorChat() {
       setRemainingTime((prevTime) => prevTime + selectedExtensionTime * 60);
       setShowWarning(false);
       setShowExtensionOptions(false);
+      axios.put("api/update-duration", {
+        thread_id: threadId,
+        duration_minutes: selectedExtensionTime,
+      });
     }
   };
 
