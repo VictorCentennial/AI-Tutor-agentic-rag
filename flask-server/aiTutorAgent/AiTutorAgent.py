@@ -545,6 +545,14 @@ class AiTutorAgent:
     def ask_new_question(self, state: AgentState):
         return {"messages": [AIMessage(content="What is your next question?")]}
 
+    # update state of the graph for a specific thread
+    def extend_duration(self, thread_id: str, extend_minutes: int):
+        thread = {"configurable": {"thread_id": str(thread_id)}}
+        current_duration = self.graph.get_state(thread).values["duration_minutes"]
+        self.graph.update_state(
+            thread, {"duration_minutes": current_duration + extend_minutes}
+        )
+
     # helper function
     # def get_question_answer_context(self, messages: list):
     #     # Convert messages into conversation format
