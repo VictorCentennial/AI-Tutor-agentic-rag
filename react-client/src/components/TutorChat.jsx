@@ -121,12 +121,15 @@ function TutorChat() {
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   };
 
-main
   const extendSession = () => {
     if (selectedExtensionTime > 0) {
       setRemainingTime((prevTime) => prevTime + selectedExtensionTime * 60);
       setShowWarning(false);
       setShowExtensionOptions(false);
+      axios.put("api/update-duration", {
+        thread_id: threadId,
+        duration_minutes: selectedExtensionTime,
+      });
     }
   };
 
@@ -214,8 +217,8 @@ main
                     {sessionSummary.messages.length > 0 ? (
                       <div
                         className={`p-3 rounded-md ${sessionSummary.messages[sessionSummary.messages.length - 1].role === "AI"
-                            ? "bg-blue-50 border border-blue-300"
-                            : "bg-gray-50 border border-gray-300"
+                          ? "bg-blue-50 border border-blue-300"
+                          : "bg-gray-50 border border-gray-300"
                           }`}
                       >
                         <strong>{sessionSummary.messages[sessionSummary.messages.length - 1].role}:</strong>{" "}
@@ -255,41 +258,6 @@ main
             )}
           </div>
         </div>
-
-  return (
-    <Container fluid className="mt-4 relative w-full">
-      {isTutoringStarted && (
-        <div className="absolute right-0 top-0 px-4 py-2 rounded-md text-right">
-          <span>🕒 Time Left: </span>
-          <span
-            className={`${remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""}`}
-          >
-            {formatTime(remainingTime)}
-          </span>
-        </div>
-      )}
-
-
-      {/* Pop-up Modal */}
-      <Modal show={showWarning} onHide={() => setShowWarning(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>Session Ending Soon</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          Only 5 minutes are left in your session. Please wrap up your work.
-        </Modal.Body>
-        <Modal.Footer>
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowWarning(false)}
-          >
-            OK
-          </button>
-        </Modal.Footer>
-      </Modal>
-
-      {!isTutoringStarted ? (
-        <TutorStart onStartTutoring={handleStartTutoring} isLoading={isLoading} />
       ) : (
         <>
           {isTutoringStarted && (

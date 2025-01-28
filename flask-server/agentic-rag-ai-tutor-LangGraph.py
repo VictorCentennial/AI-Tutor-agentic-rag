@@ -427,15 +427,21 @@ def save_session_history():
             "start_time": start_time.strftime("%Y-%m-%d %H:%M:%S"),
             "end_time": end_time.strftime("%Y-%m-%d %H:%M:%S"),
             "messages": [
-                {"role": "AI" if isinstance(msg, AIMessage) else "Human", "content": msg.content}
+                {
+                    "role": "AI" if isinstance(msg, AIMessage) else "Human",
+                    "content": msg.content,
+                }
                 for msg in message_history
             ],
         }
-        return jsonify({"message": f"Session history saved to {filepath}", "summary": summary})
+        return jsonify(
+            {"message": f"Session history saved to {filepath}", "summary": summary}
+        )
 
     except Exception as e:
         logging.error(f"Error in save_session_history: {str(e)}")
         return jsonify({"error": "Failed to save session", "details": str(e)}), 500
+
 
 @app.route("/download-session", methods=["POST"])
 def download_session_history():
@@ -445,17 +451,20 @@ def download_session_history():
         thread_id = data.get("thread_id")
         filename = f"session_{thread_id}.txt"
         # Use the latest file (if multiple matches)
-        file_path = os.path.join(SESSION_HISTORY_DIR, filename )
+        file_path = os.path.join(SESSION_HISTORY_DIR, filename)
 
         return send_file(
             file_path,
             mimetype="text/plain",
             as_attachment=True,
-            download_name=os.path.basename(file_path)
+            download_name=os.path.basename(file_path),
         )
     except Exception as e:
         logging.error(f"Error in download_session_history: {str(e)}")
-        return jsonify({"error": "Failed to download session history", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to download session history", "details": str(e)}),
+            500,
+        )
 
 
 @app.route("/get-graph", methods=["GET"])
@@ -463,6 +472,21 @@ def get_graph_image():
     graph = aiTutorAgent.graph.get_graph()
     graph_data = get_graph_data(graph)
     return jsonify({"graph": graph_data})
+
+
+@app.route("/update-duration", methods=["PUT"])
+def update_duration():
+    data = request.json
+    duration_minutes = data.get("duration_minutes")
+    thread_id = data.get("thread_id")
+    print(f"duration_minutes: {duration_minutes}")
+    print(f"thread_id: {thread_id}")
+    try:
+        aiTutorAgent.extend_duration(str(thread_id), int(duration_minutes))
+        return jsonify({"message": "Duration updated successfully"})
+    except Exception as e:
+        logging.error(f"Error in update_duration: {str(e)}")
+        return jsonify({"error": "Failed to update duration", "details": str(e)}), 500
 
 
 # Run the Flask app
