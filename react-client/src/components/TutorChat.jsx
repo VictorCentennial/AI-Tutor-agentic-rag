@@ -217,8 +217,8 @@ function TutorChat() {
                     {sessionSummary.messages.length > 0 ? (
                       <div
                         className={`p-3 rounded-md ${sessionSummary.messages[sessionSummary.messages.length - 1].role === "AI"
-                          ? "bg-blue-50 border border-blue-300"
-                          : "bg-gray-50 border border-gray-300"
+                            ? "bg-blue-50 border border-blue-300"
+                            : "bg-gray-50 border border-gray-300"
                           }`}
                       >
                         <strong>{sessionSummary.messages[sessionSummary.messages.length - 1].role}:</strong>{" "}
@@ -258,6 +258,10 @@ function TutorChat() {
             )}
           </div>
         </div>
+
+
+
+
       ) : (
         <>
           {isTutoringStarted && (
