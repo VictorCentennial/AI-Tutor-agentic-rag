@@ -1,13 +1,11 @@
 // App.jsx
-//removed header
-import TutorChat from "./components/TutorChat";
+import Login from "./components/Login";
 import './App.css';
 
 function App() {
   return (
     <div className="App">
-
-      <TutorChat />
+      <Login/>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import TutorInteraction from "./TutorInteraction";
 import axios from "axios";
 import "../App.css";
 
+
 function TutorChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [aiMessages, setAiMessages] = useState([]);
@@ -112,14 +113,6 @@ function TutorChat() {
     }
   };
 
-  const formatTime = (timeInSeconds) => {
-    if (timeInSeconds <= 0) {
-      return "00:00";
-    }
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = timeInSeconds % 60;
-    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  };
 
   const extendSession = () => {
     if (selectedExtensionTime > 0) {
@@ -264,15 +257,7 @@ function TutorChat() {
 
       ) : (
         <>
-          {isTutoringStarted && (
-            <div className="absolute right-0 top-0 px-4 py-2 rounded-md text-right">
-              <span>🕒 Time Left: </span>
-              <span className={`${remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""}`}>
-                {formatTime(remainingTime)}
-              </span>
-            </div>
-          )}
-
+          
           <Modal show={showWarning} onHide={() => setShowWarning(false)} centered>
             <Modal.Header closeButton>
               <Modal.Title>Session Ending Soon</Modal.Title>
@@ -315,10 +300,13 @@ function TutorChat() {
               selectedFolder={selectedFolder}
               selectedTopic={selectedTopic}
               threadId={threadId}
+              remainingTime={remainingTime}
             />
           )}
         </>
+        
       )}
+      
     </Container>
   );
 }

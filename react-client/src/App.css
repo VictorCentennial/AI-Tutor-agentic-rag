@@ -1,4 +1,12 @@
+#root, .App {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .App-header {
+  display: flex;
   background-color: #282c34;
   padding: 5px;
   color: white;
@@ -124,93 +132,3 @@ code {
 }
 
 
-.preloader-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, #1f1c2c, #928dab);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 18px;
-  z-index: 9999;
-}
-
-.preloader-content {
-  text-align: center;
-  animation: zoomIn 0.8s ease-out forwards;
-}
-
-.animated-text {
-  opacity: 0;
-  animation: fadeIn 0.5s forwards;
-}
-
-.delay-1 {
-  animation-delay: 1s;
-}
-
-.delay-2 {
-  animation-delay: 1.5s;
-}
-
-.delay-3 {
-  animation-delay: 2s;
-}
-
-.delay-4 {
-  animation-delay: 2.5s;
-}
-
-.delay-5 {
-  animation-delay: 3s;
-}
-
-.delay-6 {
-  animation-delay: 3.5s;
-}
-
-@keyframes fadeIn {
-  0% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-.spinner-container {
-  margin: 20px auto;
-}
-
-.spinner {
-  border: 4px solid rgba(255, 255, 255, 0.101);
-  border-top: 4px solid white;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes zoomIn {
-  from {
-    transform: scale(0.8);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
