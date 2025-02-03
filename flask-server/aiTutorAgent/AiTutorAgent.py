@@ -15,13 +15,15 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.checkpoint.memory import MemorySaver
 
 from langgraph.graph import START, END, StateGraph
+from langgraph.types import Command, interrupt
 
-
-from typing import TypedDict, Annotated, List
+from typing_extensions import TypedDict, Literal
+from typing import Annotated, List
 from datetime import timedelta, datetime
 from langchain.schema import Document
 from langchain.vectorstores.base import VectorStore
 from rag import rag
+import logging
 
 
 class AgentState(TypedDict):
@@ -37,6 +39,11 @@ class AgentState(TypedDict):
 
 
 class AiTutorAgent:
+
+    # Maximum number of attempts a student can make to answer a question
+    # before the system provides a complete explanation
+    MAX_ANSWER_ATTEMPTS: int = 3
+
     def __init__(
         self, GOOGLE_MODEL_NAME: str, GOOGLE_API_KEY: str, memory: MemorySaver
     ):
@@ -67,74 +74,73 @@ class AiTutorAgent:
         builder.add_node("reask_question", self.reask_question)
         builder.add_node("llm_answer_question", self.llm_answer_question)
         builder.add_node("student_answer_question", self.student_answer_question)
-        builder.add_node("add_wrong_answer_trials", self.add_wrong_answer_trials)
+        # builder.add_node("add_wrong_answer_trials", self.add_wrong_answer_trials)
         builder.add_node(
             "tell_student_answer_is_correct", self.tell_student_answer_is_correct
         )
         builder.add_node("hints", self.hints)
         builder.add_node("explain_answer", self.explain_answer)
         builder.add_node("intermediate_summary", self.intermediate_summary)
-        builder.add_node("ask_any_further_question", self.ask_any_further_question)
+        # builder.add_node("ask_any_further_question", self.ask_any_further_question)
         builder.add_node(
             "student_answer_if_any_further_question",
             self.student_answer_if_any_further_question,
         )
         builder.add_node("session_summary", self.session_summary)
-        builder.add_node("ask_new_question", self.ask_new_question)
+        # builder.add_node("ask_new_question", self.ask_new_question)
         builder.add_node("time_out_message", self.time_out_message)
         builder.add_edge(START, "create_summary")
-        builder.add_edge("create_summary", "greeting")
-        builder.add_edge("greeting", "student_input")
-        builder.add_edge("reask_question", "student_input")
-        builder.add_conditional_edges(
-            "student_input",
-            self.question_guarding,
-            {
-                "TimeOut": "time_out_message",
-                "Pass": "llm_answer_question",
-                "Fail": "reask_question",
-            },
-        )
-        builder.add_edge("llm_answer_question", "student_answer_question")
-        builder.add_conditional_edges(
-            "student_answer_question",
-            self.further_question_correctness,
-            {
-                "TimeOut": "time_out_message",
-                "Correct": "tell_student_answer_is_correct",
-                "Wrong": "add_wrong_answer_trials",
-                "Stop": "explain_answer",
-            },
-        )
-        builder.add_edge("tell_student_answer_is_correct", "intermediate_summary")
-        builder.add_edge("add_wrong_answer_trials", "hints")
-        builder.add_edge("hints", "student_answer_question")
-        builder.add_edge("explain_answer", "intermediate_summary")
-        builder.add_edge("intermediate_summary", "ask_any_further_question")
-        builder.add_edge(
-            "ask_any_further_question", "student_answer_if_any_further_question"
-        )
+        # builder.add_edge("create_summary", "greeting")
+        # builder.add_edge("greeting", "student_input")
+        # builder.add_edge("reask_question", "student_input")
+        # builder.add_conditional_edges(
+        #     "student_input",
+        #     self.question_guarding,
+        #     {
+        #         "TimeOut": "time_out_message",
+        #         "Pass": "llm_answer_question",
+        #         "Fail": "reask_question",
+        #     },
+        # )
+        # builder.add_edge("llm_answer_question", "student_answer_question")
+        # builder.add_conditional_edges(
+        #     "student_answer_question",
+        #     self.further_question_correctness,
+        #     {
+        #         "TimeOut": "time_out_message",
+        #         "Correct": "tell_student_answer_is_correct",
+        #         "Wrong": "add_wrong_answer_trials",
+        #         "Stop": "explain_answer",
+        #     },
+        # )
+        # builder.add_edge("tell_student_answer_is_correct", "intermediate_summary")
+        # builder.add_edge("add_wrong_answer_trials", "hints")
+        # builder.add_edge("hints", "student_answer_question")
+        # builder.add_edge("explain_answer", "intermediate_summary")
+        # builder.add_edge("intermediate_summary", "ask_any_further_question")
+        # builder.add_edge(
+        #     "ask_any_further_question", "student_answer_if_any_further_question"
+        # )
 
-        builder.add_conditional_edges(
-            "student_answer_if_any_further_question",
-            self.any_further_question,
-            {
-                "TimeOut": "time_out_message",
-                "Yes": "ask_new_question",
-                "No": "session_summary",
-            },
-        )
-        builder.add_edge("time_out_message", "session_summary")
-        builder.add_edge("ask_new_question", "student_input")
-        builder.add_edge("session_summary", END)
+        # builder.add_conditional_edges(
+        #     "student_answer_if_any_further_question",
+        #     self.any_further_question,
+        #     {
+        #         "TimeOut": "time_out_message",
+        #         "Yes": "ask_new_question",
+        #         "No": "session_summary",
+        #     },
+        # )
+        # builder.add_edge("time_out_message", "session_summary")
+        # builder.add_edge("ask_new_question", "student_input")
 
         self.graph = builder.compile(
             checkpointer=memory,
-            interrupt_before=[
-                "student_input",
-                "student_answer_question",
-                "student_answer_if_any_further_question",
-            ],
+            # interrupt_before=[
+            #     "student_input",
+            #     "student_answer_question",
+            #     "student_answer_if_any_further_question",
+            # ],
         )
 
         self.SUMMARY_PROMPT = """
@@ -346,22 +352,61 @@ class AiTutorAgent:
                 {messages}
             """
 
-    def create_summary(self, state: AgentState):
+    def create_summary(self, state: AgentState) -> Command[Literal["greeting"]]:
         response = self.llm.invoke(self.SUMMARY_PROMPT.format(titles=state["titles"]))
-        return {"summary": response.content}
+        # return {"summary": response.content}
+        return Command(
+            # state update
+            update={"summary": response.content},
+            # Control flow
+            goto="greeting",
+        )
 
-    def greeting(self, state: AgentState):
+    def greeting(self, state: AgentState) -> Command[Literal["student_input"]]:
         subject = state["subject"]
-        # topic = state["topic"]
         summary = state["summary"]
         greeting_prompt = self.GREETING_PROMPT.format(subject=subject, summary=summary)
         messages = [HumanMessage(content=greeting_prompt)]
         response = self.llm.invoke(messages)
-        return {"messages": response}
+        # return {"messages": response}
+        return Command(
+            # state update
+            update={"messages": response},
+            # Control flow
+            goto="student_input",
+        )
 
-    def student_input(self, state: AgentState):
-        # print(state["messages"][-1].content)
-        return state
+    def student_input(
+        self, state: AgentState
+    ) -> Command[Literal["time_out_message", "reask_question", "llm_answer_question"]]:
+        question = interrupt("Do you have any questions?")
+        question_type_prompt = self.QUESTION_GUARDING_PROMPT.format(
+            question=question, summary=state["summary"]
+        )
+
+        # TODO: add repeat mechanism for the question type prompt
+        question_type_response = self.llm.invoke(question_type_prompt).content
+        print(f"question_type_response: {question_type_response}")
+
+        if self.time_out(state):
+            goto = "time_out_message"
+        elif question_type_response.startswith("Fail"):
+            goto = "reask_question"
+        elif question_type_response.startswith("Pass"):
+            goto = "llm_answer_question"
+
+        else:
+            logging.error(
+                f"question_type_response not in expected format: {question_type_response}"
+            )
+            goto = END
+
+        return Command(
+            # state update
+            update={"messages": [HumanMessage(content=question)]},
+            # Control flow
+            goto=goto,
+        )
 
     # helper function
     def time_out(self, state: AgentState):
@@ -370,30 +415,37 @@ class AiTutorAgent:
         duration_minutes = state["duration_minutes"]
         return (current_time - start_time) > timedelta(minutes=duration_minutes)
 
-    def question_guarding(self, state: AgentState):
-        if self.time_out(state):
-            return "TimeOut"
-        question = state["messages"][-1].content
-        summary = state["summary"]
-        response = self.llm.invoke(
-            self.QUESTION_GUARDING_PROMPT.format(question=question, summary=summary)
+    # def question_guarding(self, state: AgentState):
+    #     if self.time_out(state):
+    #         return "TimeOut"
+    #     question = state["messages"][-1].content
+    #     summary = state["summary"]
+    #     response = self.llm.invoke(
+    #         self.QUESTION_GUARDING_PROMPT.format(question=question, summary=summary)
+    #     )
+    #     content = response.content
+    #     if content.startswith("Pass"):
+    #         return "Pass"
+    #     else:
+    #         return "Fail"
+
+    def reask_question(self, state: AgentState) -> Command[Literal["student_input"]]:
+        return Command(
+            # state update
+            update={
+                "messages": [
+                    AIMessage(
+                        content="Your question is not related to the topic. Please ask a question related to the topic."
+                    )
+                ]
+            },
+            # Control flow
+            goto="student_input",
         )
-        content = response.content
-        if content.startswith("Pass"):
-            return "Pass"
-        else:
-            return "Fail"
 
-    def reask_question(self, state: AgentState):
-        return {
-            "messages": [
-                AIMessage(
-                    content="Your question is not related to the topic. Please ask a question related to the topic."
-                )
-            ]
-        }
-
-    def llm_answer_question(self, state: AgentState):
+    def llm_answer_question(
+        self, state: AgentState
+    ) -> Command[Literal["student_answer_question"]]:
         while True:
             question = state["messages"][-1].content
             # Use instance vector_store instead of state
@@ -425,15 +477,55 @@ class AiTutorAgent:
                 )
             if tutor_question:
                 break
-        return {
-            "messages": [AIMessage(content=result)],
-            "answer_trials": 0,
-            "tutor_question": tutor_question,
-        }
+        return Command(
+            # state update
+            update={
+                "messages": [AIMessage(content=result)],
+                "answer_trials": 0,
+                "tutor_question": tutor_question,
+            },
+            # Control flow
+            goto="student_answer_question",
+        )
 
-    def student_answer_question(self, state: AgentState):
-        # print(state["messages"][-1].content)
-        return state
+    def student_answer_question(self, state: AgentState) -> Command[
+        Literal[
+            "time_out_message",
+            "tell_student_answer_is_correct",
+            "hints",
+            "explain_answer",
+        ]
+    ]:
+        # TODO: client to handle the interrupt value
+        student_answer = interrupt("What is your answer?")
+
+        if self.time_out(state):
+            goto = "time_out_message"
+        else:
+            answer_trials = state["answer_trials"]
+            question = state["tutor_question"]
+            response = self.llm.invoke(
+                self.CHECK_QUESTION_ANSWER_PROMPT.format(
+                    question=question, answer=student_answer
+                )
+            )
+            result = response.content.strip()
+            # check if the answer is correct
+            if result.lower().startswith("correct"):
+                goto = "tell_student_answer_is_correct"
+            else:
+                # check if wrong answer exceeds the max answer attempts
+                if answer_trials >= self.MAX_ANSWER_ATTEMPTS:
+                    goto = "explain_answer"
+                else:
+                    goto = "hints"
+
+        return Command(
+            # state update
+            update={"messages": [HumanMessage(content=student_answer)]},
+            # Control flow
+            goto=goto,
+        )
 
     # helper function
     # TODO: use trim_message library
@@ -452,41 +544,59 @@ class AiTutorAgent:
 
         return "\n".join(conversation)
 
-    def further_question_correctness(self, state: AgentState, max_trials=3):
-        if self.time_out(state):
-            return "TimeOut"
+    # def further_question_correctness(self, state: AgentState, max_trials=3):
+    #     if self.time_out(state):
+    #         return "TimeOut"
 
-        answer_trials = state["answer_trials"]
-        if answer_trials >= max_trials:
-            return "Stop"
+    #     answer_trials = state["answer_trials"]
+    #     if answer_trials >= max_trials:
+    #         return "Stop"
 
-        answer = state["messages"][-1].content
-        question = state["tutor_question"]
+    #     answer = state["messages"][-1].content
+    #     question = state["tutor_question"]
 
-        response = self.llm.invoke(
-            self.CHECK_QUESTION_ANSWER_PROMPT.format(question=question, answer=answer)
+    #     response = self.llm.invoke(
+    #         self.CHECK_QUESTION_ANSWER_PROMPT.format(question=question, answer=answer)
+    #     )
+
+    #     result = response.content.strip()
+    #     return "Correct" if result.lower().startswith("correct") else "Wrong"
+    #     # need to add one trials for answer_trials
+
+    def tell_student_answer_is_correct(
+        self, state: AgentState
+    ) -> Command[Literal["intermediate_summary"]]:
+        return Command(
+            # state update
+            update={"messages": [AIMessage(content="Your answer is correct.")]},
+            # Control flow
+            goto="intermediate_summary",
         )
 
-        result = response.content.strip()
-        return "Correct" if result.lower().startswith("correct") else "Wrong"
-        # need to add one trials for answer_trials
+    # def add_wrong_answer_trials(self, state: AgentState):
+    #     return {"answer_trials": state["answer_trials"] + 1}
 
-    def tell_student_answer_is_correct(self, state: AgentState):
-        return {"messages": [AIMessage(content="Your answer is correct.")]}
-
-    def add_wrong_answer_trials(self, state: AgentState):
-        return {"answer_trials": state["answer_trials"] + 1}
-
-    def hints(self, state: AgentState):
+    def hints(self, state: AgentState) -> Command[Literal["student_answer_question"]]:
         question_answer_context = self.get_question_answer_context(state)
         print(f"question_answer_context for hints: {question_answer_context}")
         response = self.llm.invoke(
             self.HINTS_PROMPT.format(question_answer_context=question_answer_context)
         )
         result = response.content
-        return {"messages": [AIMessage(content=result)]}
+        # return {"messages": [AIMessage(content=result)]}
+        return Command(
+            # state update (add one trials for answer_trials and update the messages with the hints)
+            update={
+                "answer_trials": state["answer_trials"] + 1,
+                "messages": [AIMessage(content=result)],
+            },
+            # Control flow
+            goto="student_answer_question",
+        )
 
-    def explain_answer(self, state: AgentState):
+    def explain_answer(
+        self, state: AgentState
+    ) -> Command[Literal["intermediate_summary"]]:
         question_answer_context = self.get_question_answer_context(state)
         response = self.llm.invoke(
             self.EXPLAIN_ANSWER_PROMPT.format(
@@ -494,9 +604,17 @@ class AiTutorAgent:
             )
         )
         result = response.content
-        return {"messages": [AIMessage(content=result)]}
+        # return {"messages": [AIMessage(content=result)]}
+        return Command(
+            # state update
+            update={"messages": [AIMessage(content=result)]},
+            # Control flow
+            goto="intermediate_summary",
+        )
 
-    def intermediate_summary(self, state: AgentState):
+    def intermediate_summary(
+        self, state: AgentState
+    ) -> Command[Literal["student_answer_if_any_further_question"]]:
         question_answer_context = self.get_question_answer_context(state)
         response = self.llm.invoke(
             self.INTERMEDIATE_SUMMARY_PROMPT.format(
@@ -504,30 +622,80 @@ class AiTutorAgent:
             )
         )
         result = response.content
-        return {"messages": [AIMessage(content=result)]}
+        # return {"messages": [AIMessage(content=result)]}
+        return Command(
+            # state update
+            update={
+                "messages": [
+                    AIMessage(content=result),
+                    # ask student if they have any further question
+                    AIMessage(content=self.ANY_FURTHER_QUESTION_PROMPT),
+                ]
+            },
+            # Control flow
+            goto="student_answer_if_any_further_question",
+        )
 
-    def ask_any_further_question(self, state: AgentState):
-        return {"messages": [AIMessage(content=self.ANY_FURTHER_QUESTION_PROMPT)]}
+    # def ask_any_further_question(self, state: AgentState):
+    #     return {"messages": [AIMessage(content=self.ANY_FURTHER_QUESTION_PROMPT)]}
 
-    def student_answer_if_any_further_question(self, state: AgentState):
-        return state
-
-    def any_further_question(self, state: AgentState):
+    def student_answer_if_any_further_question(
+        self, state: AgentState
+    ) -> Command[Literal["session_summary", "student_input"]]:
+        # if time out, go to session summary
         if self.time_out(state):
-            return "TimeOut"
-        student_answer = state["messages"][-1].content
-        return student_answer
-        # response = self.llm.invoke(
-        #     self.ANY_FURTHER_QUESTION_PROMPT.format(student_answer=student_answer)
-        # )
-        # result = response.content
-        # if result.startswith("Yes"):
-        #     return "Yes"
-        # else:
-        #     return "No"
+            return Command(
+                # Control flow
+                goto="session_summary",
+            )
+        # if student answer is yes, go to student input
+        student_answer = interrupt("Do you have any further question?")
 
-    def time_out_message(self, state: AgentState):
-        return state
+        if student_answer.lower().startswith("yes"):
+            return Command(
+                # state update
+                update={
+                    "messages": [
+                        HumanMessage(content=student_answer),
+                        AIMessage(content="What is your next question?"),
+                    ]
+                },
+                # Control flow
+                goto="student_input",
+            )
+        else:
+            return Command(
+                # Control flow
+                goto="session_summary",
+            )
+
+    # def any_further_question(self, state: AgentState):
+    #     if self.time_out(state):
+    #         return "TimeOut"
+    #     student_answer = state["messages"][-1].content
+    #     return student_answer
+    # response = self.llm.invoke(
+    #     self.ANY_FURTHER_QUESTION_PROMPT.format(student_answer=student_answer)
+    # )
+    # result = response.content
+    # if result.startswith("Yes"):
+    #     return "Yes"
+    # else:
+    #     return "No"
+
+    def time_out_message(
+        self, state: AgentState
+    ) -> Command[Literal["session_summary"]]:
+        return Command(
+            # state update
+            update={
+                "messages": [
+                    AIMessage(content="Time is up. We will summarize the session now.")
+                ]
+            },
+            # Control flow
+            goto="session_summary",
+        )
         # return {
         #     "messages": [
         #         AIMessage(content="Time is up. We will summarize the session now.")
@@ -540,10 +708,16 @@ class AiTutorAgent:
             self.SESSION_SUMMARY_PROMPT.format(messages=messages)
         )
         result = response.content
-        return {"messages": [AIMessage(content=result)]}
+        # return {"messages": [AIMessage(content=result)]}
+        return Command(
+            # state update
+            update={"messages": [AIMessage(content=result)]},
+            # Control flow
+            goto=END,
+        )
 
-    def ask_new_question(self, state: AgentState):
-        return {"messages": [AIMessage(content="What is your next question?")]}
+    # def ask_new_question(self, state: AgentState):
+    #     return {"messages": [AIMessage(content="What is your next question?")]}
 
     # update state of the graph for a specific thread
     def extend_duration(self, thread_id: str, extend_minutes: int):
