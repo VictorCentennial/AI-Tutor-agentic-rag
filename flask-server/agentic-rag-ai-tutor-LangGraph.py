@@ -12,7 +12,7 @@ import uuid
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import AIMessage, HumanMessage
-
+from langgraph.types import Command
 from aiTutorAgent import aiTutorAgent
 
 from rag import rag
@@ -345,6 +345,14 @@ def start_tutoring():
     # print(f"State: {state_to_json(state)}")
     # print(f"jsonify: {jsonify( {"state": state_to_json(state)})}")
 
+    graph = aiTutorAgent.graph.get_graph()
+    # save the graph
+    # create graph folder if it doesn't exist
+    graph_folder = "graph"
+    if not os.path.exists(graph_folder):
+        os.makedirs(graph_folder)
+    graph.draw_mermaid_png(output_file_path=os.path.join(graph_folder, "graph.png"))
+
     return jsonify(
         {
             "messages": response_json,
@@ -367,7 +375,8 @@ def continue_tutoring():
     #     thread, {"messages": [HumanMessage(content=student_response)]}
     # )
 
-    response = aiTutorAgent.graph.invoke(None, thread)
+    # response = aiTutorAgent.graph.invoke(None, thread)
+    response = aiTutorAgent.graph.invoke(Command(resume=student_response), thread)
     response_json = messages_to_json(response["messages"])
     state = aiTutorAgent.graph.get_state(thread)
     next_state = state.next[0] if state.next else ""
