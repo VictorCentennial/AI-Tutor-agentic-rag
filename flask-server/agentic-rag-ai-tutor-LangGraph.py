@@ -363,9 +363,9 @@ def continue_tutoring():
     thread_id = data.get("thread_id")
     thread = {"configurable": {"thread_id": str(thread_id)}}
 
-    aiTutorAgent.graph.update_state(
-        thread, {"messages": [HumanMessage(content=student_response)]}
-    )
+    # aiTutorAgent.graph.update_state(
+    #     thread, {"messages": [HumanMessage(content=student_response)]}
+    # )
 
     response = aiTutorAgent.graph.invoke(None, thread)
     response_json = messages_to_json(response["messages"])
