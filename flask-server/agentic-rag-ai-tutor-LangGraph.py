@@ -337,6 +337,10 @@ def start_tutoring():
         "start_time": datetime.now(),
         "duration_minutes": duration,
         "tutor_question": "",
+        "student_question": "",
+        "task_breakdown": [],
+        "current_task_index": 0,
+        "task_solving_start_index": 0,
     }
 
     thread_id = str(uuid.uuid4())
