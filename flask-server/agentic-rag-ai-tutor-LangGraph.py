@@ -194,6 +194,12 @@ def get_topics():
 def embed_documents(folder_path, vector_store_path):
     logging.debug(f"Loading documents from: {folder_path}")
     documents = rag.load_documents(folder_path)
+
+    # Clean and normalize the text before embedding
+    for doc in documents:
+        # Remove extra spaces between characters
+        doc.page_content = " ".join(doc.page_content.split())
+
     logging.debug(f"Documents loaded")
 
     logging.debug(f"Embedding documents")
