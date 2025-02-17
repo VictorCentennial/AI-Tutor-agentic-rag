@@ -394,16 +394,23 @@ def save_session_history():
     try:
         data = request.json
         thread_id = data.get("thread_id")
+        student_id = data.get("student_id")
+        topic_code = data.get("topic_code")  # Updated field name
+        time_stamp = data.get("time_stamp")
         thread = {"configurable": {"thread_id": str(thread_id)}}
         state = aiTutorAgent.graph.get_state(thread)
         message_history = state.values["messages"]
         subject = state.values["subject"]
         start_time = state.values["start_time"]
         end_time = datetime.now()
+        logging.info(f"mesage history: {message_history}")
+        # Debugging: Log the received data
+        logging.info(f"Received data: {data}")
+        logging.info(f"Topic Code: {topic_code}")
+        logging.info(f"Date Time: {time_stamp}")
 
-        # Create a filename with timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"session_{thread_id}.txt"
+        # Create a filename using the provided date_time and topic_code
+        filename = f"{time_stamp}_{topic_code}_{student_id}.txt"
         filepath = os.path.join(SESSION_HISTORY_DIR, filename)
 
         with open(filepath, "w") as file:
@@ -411,6 +418,7 @@ def save_session_history():
             file.write(f"Start Time: {start_time}\n")
             file.write(f"End Time: {end_time}\n")
             file.write("-" * 80 + "\n")
+                    
 
             for message in message_history:
                 role = (
@@ -449,7 +457,10 @@ def download_session_history():
     try:
         data = request.json
         thread_id = data.get("thread_id")
-        filename = f"session_{thread_id}.txt"
+        student_id = data.get("student_id")
+        topic_code = data.get("topic_code")  # Updated field name
+        time_stamp = data.get("time_stamp")    # New field for date and time
+        filename = f"{time_stamp}_{topic_code}_{student_id}.txt"
         # Use the latest file (if multiple matches)
         file_path = os.path.join(SESSION_HISTORY_DIR, filename)
 
@@ -489,6 +500,103 @@ def update_duration():
         return jsonify({"error": "Failed to update duration", "details": str(e)}), 500
 
 
+@app.route("/get-sessions", methods=["POST"])
+def get_sessions():
+    try:
+        data = request.json
+        student_id = data.get("student_id")
+        date = data.get("date")
+        course_code = data.get("course_code")
+
+        SESSION_HISTORY_DIR = "saved_session_history"
+        sessions = []
+
+        for filename in os.listdir(SESSION_HISTORY_DIR):
+            if filename.endswith(".txt"):
+                # Extract metadata from filename
+                parts = filename.split("_")
+                if len(parts) == 3:
+                    file_date, file_course, file_student_id = parts
+                    file_student_id = file_student_id.split(".")[0]  # Remove .txt
+
+                    # Apply filters (only check fields that are provided)
+                    matches_student_id = not student_id or file_student_id == student_id
+                    matches_date = not date or file_date == date
+                    matches_course_code = not course_code or file_course == course_code
+
+                    if matches_student_id and matches_date and matches_course_code:
+                        sessions.append({
+                            "filename": filename,
+                            "student_id": file_student_id,
+                            "course_code": file_course,
+                            "date": file_date,
+                            "filepath": os.path.join(SESSION_HISTORY_DIR, filename)
+                        })
+
+        return jsonify({"sessions": sessions})
+
+    except Exception as e:
+        logging.error(f"Error in get_sessions: {str(e)}")
+        return jsonify({"error": "Failed to fetch sessions", "details": str(e)}), 500
+    
+@app.route("/general-analysis", methods=["POST"])
+def general_analysis():
+    try:
+        # Perform general analysis (e.g., analyze all sessions)
+        analysis_result = aiTutorAgent.general_analysis()
+        return jsonify(analysis_result)
+    except Exception as e:
+        logging.error(f"Error in general_analysis: {str(e)}")
+        return jsonify({"error": "Failed to perform general analysis", "details": str(e)}), 500
+
+@app.route("/student-analysis", methods=["POST"])
+def student_analysis():
+    try:
+        data = request.json
+        student_id = data.get("student_id")
+
+        if not student_id:
+            return jsonify({"error": "Student ID is required"}), 400
+
+        # Perform student-specific analysis
+        analysis_result = aiTutorAgent.student_analysis(student_id)
+        return jsonify(analysis_result)
+    except Exception as e:
+        logging.error(f"Error in student_analysis: {str(e)}")
+        return jsonify({"error": "Failed to perform student analysis", "details": str(e)}), 500
+
+@app.route("/course-analysis", methods=["POST"])
+def course_analysis():
+    try:
+        data = request.json
+        course_code = data.get("course_code")
+
+        if not course_code:
+            return jsonify({"error": "Course Code is required"}), 400
+
+        # Perform course-specific analysis
+        analysis_result = aiTutorAgent.course_analysis(course_code)
+        return jsonify(analysis_result)
+    except Exception as e:
+        logging.error(f"Error in course_analysis: {str(e)}")
+        return jsonify({"error": "Failed to perform course analysis", "details": str(e)}), 500
+
+@app.route("/day-analysis", methods=["POST"])
+def day_analysis():
+    try:
+        data = request.json
+        date = data.get("date")
+
+        if not date:
+            return jsonify({"error": "Date is required"}), 400
+
+        # Perform day-specific analysis
+        analysis_result = aiTutorAgent.day_analysis(date)
+        return jsonify(analysis_result)
+    except Exception as e:
+        logging.error(f"Error in day_analysis: {str(e)}")
+        return jsonify({"error": "Failed to perform day analysis", "details": str(e)}), 500
+    
 # Run the Flask app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
