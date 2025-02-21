@@ -437,7 +437,6 @@ def save_session_history():
             file.write(f"Start Time: {start_time}\n")
             file.write(f"End Time: {end_time}\n")
             file.write("-" * 80 + "\n")
-                    
 
             for message in message_history:
                 role = (
@@ -478,8 +477,13 @@ def download_session_history():
         thread_id = data.get("thread_id")
         student_id = data.get("student_id")
         topic_code = data.get("topic_code")  # Updated field name
-        time_stamp = data.get("time_stamp")    # New field for date and time
+        time_stamp = data.get("time_stamp")  # New field for date and time
         filename = f"{time_stamp}_{topic_code}_{student_id}.txt"
+
+        logging.info(f"student id: {student_id}")
+        logging.info(f"topic code: {topic_code}")
+        logging.info(f"time stamp: {time_stamp}")
+        logging.info(f"downloading session history: {filename}")
         # Use the latest file (if multiple matches)
         file_path = os.path.join(SESSION_HISTORY_DIR, filename)
 
@@ -544,20 +548,23 @@ def get_sessions():
                     matches_course_code = not course_code or file_course == course_code
 
                     if matches_student_id and matches_date and matches_course_code:
-                        sessions.append({
-                            "filename": filename,
-                            "student_id": file_student_id,
-                            "course_code": file_course,
-                            "date": file_date,
-                            "filepath": os.path.join(SESSION_HISTORY_DIR, filename)
-                        })
+                        sessions.append(
+                            {
+                                "filename": filename,
+                                "student_id": file_student_id,
+                                "course_code": file_course,
+                                "date": file_date,
+                                "filepath": os.path.join(SESSION_HISTORY_DIR, filename),
+                            }
+                        )
 
         return jsonify({"sessions": sessions})
 
     except Exception as e:
         logging.error(f"Error in get_sessions: {str(e)}")
         return jsonify({"error": "Failed to fetch sessions", "details": str(e)}), 500
-    
+
+
 @app.route("/general-analysis", methods=["POST"])
 def general_analysis():
     try:
@@ -566,7 +573,11 @@ def general_analysis():
         return jsonify(analysis_result)
     except Exception as e:
         logging.error(f"Error in general_analysis: {str(e)}")
-        return jsonify({"error": "Failed to perform general analysis", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to perform general analysis", "details": str(e)}),
+            500,
+        )
+
 
 @app.route("/student-analysis", methods=["POST"])
 def student_analysis():
@@ -582,7 +593,11 @@ def student_analysis():
         return jsonify(analysis_result)
     except Exception as e:
         logging.error(f"Error in student_analysis: {str(e)}")
-        return jsonify({"error": "Failed to perform student analysis", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to perform student analysis", "details": str(e)}),
+            500,
+        )
+
 
 @app.route("/course-analysis", methods=["POST"])
 def course_analysis():
@@ -598,7 +613,11 @@ def course_analysis():
         return jsonify(analysis_result)
     except Exception as e:
         logging.error(f"Error in course_analysis: {str(e)}")
-        return jsonify({"error": "Failed to perform course analysis", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to perform course analysis", "details": str(e)}),
+            500,
+        )
+
 
 @app.route("/day-analysis", methods=["POST"])
 def day_analysis():
@@ -614,8 +633,12 @@ def day_analysis():
         return jsonify(analysis_result)
     except Exception as e:
         logging.error(f"Error in day_analysis: {str(e)}")
-        return jsonify({"error": "Failed to perform day analysis", "details": str(e)}), 500
-    
+        return (
+            jsonify({"error": "Failed to perform day analysis", "details": str(e)}),
+            500,
+        )
+
+
 # Run the Flask app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
