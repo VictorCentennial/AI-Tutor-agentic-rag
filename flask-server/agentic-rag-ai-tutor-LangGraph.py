@@ -12,7 +12,7 @@ import uuid
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import AIMessage, HumanMessage
-
+from langgraph.types import Command
 from aiTutorAgent import aiTutorAgent
 
 from rag import rag
@@ -194,6 +194,12 @@ def get_topics():
 def embed_documents(folder_path, vector_store_path):
     logging.debug(f"Loading documents from: {folder_path}")
     documents = rag.load_documents(folder_path)
+
+    # Clean and normalize the text before embedding
+    for doc in documents:
+        # Remove extra spaces between characters
+        doc.page_content = " ".join(doc.page_content.split())
+
     logging.debug(f"Documents loaded")
 
     logging.debug(f"Embedding documents")
@@ -331,6 +337,10 @@ def start_tutoring():
         "start_time": datetime.now(),
         "duration_minutes": duration,
         "tutor_question": "",
+        "student_question": "",
+        "task_breakdown": [],
+        "current_task_index": 0,
+        "task_solving_start_index": 0,
     }
 
     thread_id = str(uuid.uuid4())
@@ -344,6 +354,14 @@ def start_tutoring():
 
     # print(f"State: {state_to_json(state)}")
     # print(f"jsonify: {jsonify( {"state": state_to_json(state)})}")
+
+    graph = aiTutorAgent.graph.get_graph()
+    # save the graph
+    # create graph folder if it doesn't exist
+    graph_folder = "graph"
+    if not os.path.exists(graph_folder):
+        os.makedirs(graph_folder)
+    graph.draw_mermaid_png(output_file_path=os.path.join(graph_folder, "graph.png"))
 
     return jsonify(
         {
@@ -363,11 +381,12 @@ def continue_tutoring():
     thread_id = data.get("thread_id")
     thread = {"configurable": {"thread_id": str(thread_id)}}
 
-    aiTutorAgent.graph.update_state(
-        thread, {"messages": [HumanMessage(content=student_response)]}
-    )
+    # aiTutorAgent.graph.update_state(
+    #     thread, {"messages": [HumanMessage(content=student_response)]}
+    # )
 
-    response = aiTutorAgent.graph.invoke(None, thread)
+    # response = aiTutorAgent.graph.invoke(None, thread)
+    response = aiTutorAgent.graph.invoke(Command(resume=student_response), thread)
     response_json = messages_to_json(response["messages"])
     state = aiTutorAgent.graph.get_state(thread)
     next_state = state.next[0] if state.next else ""
@@ -418,7 +437,6 @@ def save_session_history():
             file.write(f"Start Time: {start_time}\n")
             file.write(f"End Time: {end_time}\n")
             file.write("-" * 80 + "\n")
-                    
 
             for message in message_history:
                 role = (
@@ -459,8 +477,13 @@ def download_session_history():
         thread_id = data.get("thread_id")
         student_id = data.get("student_id")
         topic_code = data.get("topic_code")  # Updated field name
-        time_stamp = data.get("time_stamp")    # New field for date and time
+        time_stamp = data.get("time_stamp")  # New field for date and time
         filename = f"{time_stamp}_{topic_code}_{student_id}.txt"
+
+        logging.info(f"student id: {student_id}")
+        logging.info(f"topic code: {topic_code}")
+        logging.info(f"time stamp: {time_stamp}")
+        logging.info(f"downloading session history: {filename}")
         # Use the latest file (if multiple matches)
         file_path = os.path.join(SESSION_HISTORY_DIR, filename)
 
@@ -525,20 +548,23 @@ def get_sessions():
                     matches_course_code = not course_code or file_course == course_code
 
                     if matches_student_id and matches_date and matches_course_code:
-                        sessions.append({
-                            "filename": filename,
-                            "student_id": file_student_id,
-                            "course_code": file_course,
-                            "date": file_date,
-                            "filepath": os.path.join(SESSION_HISTORY_DIR, filename)
-                        })
+                        sessions.append(
+                            {
+                                "filename": filename,
+                                "student_id": file_student_id,
+                                "course_code": file_course,
+                                "date": file_date,
+                                "filepath": os.path.join(SESSION_HISTORY_DIR, filename),
+                            }
+                        )
 
         return jsonify({"sessions": sessions})
 
     except Exception as e:
         logging.error(f"Error in get_sessions: {str(e)}")
         return jsonify({"error": "Failed to fetch sessions", "details": str(e)}), 500
-    
+
+
 @app.route("/general-analysis", methods=["POST"])
 def general_analysis():
     try:
@@ -547,7 +573,11 @@ def general_analysis():
         return jsonify(analysis_result)
     except Exception as e:
         logging.error(f"Error in general_analysis: {str(e)}")
-        return jsonify({"error": "Failed to perform general analysis", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to perform general analysis", "details": str(e)}),
+            500,
+        )
+
 
 @app.route("/student-analysis", methods=["POST"])
 def student_analysis():
@@ -563,7 +593,11 @@ def student_analysis():
         return jsonify(analysis_result)
     except Exception as e:
         logging.error(f"Error in student_analysis: {str(e)}")
-        return jsonify({"error": "Failed to perform student analysis", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to perform student analysis", "details": str(e)}),
+            500,
+        )
+
 
 @app.route("/course-analysis", methods=["POST"])
 def course_analysis():
@@ -579,7 +613,11 @@ def course_analysis():
         return jsonify(analysis_result)
     except Exception as e:
         logging.error(f"Error in course_analysis: {str(e)}")
-        return jsonify({"error": "Failed to perform course analysis", "details": str(e)}), 500
+        return (
+            jsonify({"error": "Failed to perform course analysis", "details": str(e)}),
+            500,
+        )
+
 
 @app.route("/day-analysis", methods=["POST"])
 def day_analysis():
@@ -595,8 +633,12 @@ def day_analysis():
         return jsonify(analysis_result)
     except Exception as e:
         logging.error(f"Error in day_analysis: {str(e)}")
-        return jsonify({"error": "Failed to perform day analysis", "details": str(e)}), 500
-    
+        return (
+            jsonify({"error": "Failed to perform day analysis", "details": str(e)}),
+            500,
+        )
+
+
 # Run the Flask app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

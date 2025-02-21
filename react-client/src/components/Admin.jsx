@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';  // For GitHub-flavored markdown support
 
 const AdminDashboard = () => {
   const [analysisType, setAnalysisType] = useState(null);
@@ -39,6 +41,7 @@ const AdminDashboard = () => {
 
       const response = await axios.post(endpoint, payload);
       setAnalysisResult(response.data);
+      console.log(response.data)
     } catch (error) {
       console.error("Error fetching analysis:", error);
     }
@@ -183,9 +186,32 @@ const AdminDashboard = () => {
       {analysisResult && (
         <div style={styles.resultContainer}>
           <h3>Analysis Results</h3>
-          <pre style={styles.resultText}>
-            {JSON.stringify(analysisResult, null, 2)}
-          </pre>
+          <div style={{
+            ...styles.resultText,
+            maxHeight: '500px',
+            overflowY: 'auto',
+            padding: '20px',
+            backgroundColor: '#f8f9fa',  // Light background
+            borderRadius: '8px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          }}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                // Style each markdown element
+                h1: ({ node, ...props }) => <h1 style={{ color: '#2c3e50', marginBottom: '0.5em' }} {...props} />,
+                h2: ({ node, ...props }) => <h2 style={{ color: '#2c3e50', marginBottom: '0.5em' }} {...props} />,
+                h3: ({ node, ...props }) => <h3 style={{ color: '#2c3e50', marginBottom: '0.5em' }} {...props} />,
+                p: ({ node, ...props }) => <p style={{ color: '#34495e', margin: '0.5em 0', lineHeight: '1.6' }} {...props} />,
+                ul: ({ node, ...props }) => <ul style={{ margin: '0.5em 0', paddingLeft: '20px' }} {...props} />,
+                li: ({ node, ...props }) => <li style={{ color: '#34495e', margin: '0.3em 0' }} {...props} />,
+                strong: ({ node, ...props }) => <strong style={{ color: '#16a085' }} {...props} />,
+                em: ({ node, ...props }) => <em style={{ color: '#2980b9' }} {...props} />
+              }}
+            >
+              {analysisResult.summary}
+            </ReactMarkdown>
+          </div>
         </div>
       )}
     </div>

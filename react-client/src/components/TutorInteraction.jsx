@@ -8,7 +8,7 @@ import MermaidDiagram from "./MermaidDiagram";
 import PropTypes from "prop-types";
 import "../../styles/TutorInteraction.css";
 
-const debugMode = import.meta.env.VITE_DEBUG_MODE === "true";
+const debugMode = import.meta.env.VITE_DEBUG_MODE.toLowerCase() === "true";
 
 // Header Component
 const Header = () => (
@@ -152,28 +152,98 @@ function TutorInteraction({
           </div>
         </Col>
         )} */}
+
+
+      <Row className="mt-4">
+        <Col xs={12} className="text-center">
+          {!nextState && (
+            <Button
+              variant="primary"
+              onClick={() => window.location.reload()}
+              className="mb-3"
+            >
+              Start New Session
+            </Button>
+          )}
+        </Col>
+      </Row>
+
       <Row className="mt-1 input-container">
         <Col xs={8} md={10} className="mb-0">
-          <Form.Control
+          {nextState === "student_answer_if_any_further_question" ? (
+            <div className="d-flex justify-content-center w-100">
+              <Button
+                variant="success"
+                className="mx-2"
+                onClick={() => onSend("Yes")}
+                disabled={isLoading}
+              >
+                Yes
+              </Button>
+              <Button
+                variant="danger"
+                className="mx-2"
+                onClick={() => onSend("No")}
+                disabled={isLoading}
+              >
+                No
+              </Button>
+            </div>
+          ) : (
+            <Form.Control
+              as="textarea"
+              value={userMessage}
+              onChange={(e) => setUserMessage(e.target.value)}
+              placeholder="Your message..."
+              disabled={isLoading || !nextState || nextState === "student_answer_if_any_further_question" || nextState === "time_out_message"}
+              style={{ borderRadius: "20px", padding: "5px" }}
+            />
+          )}
+
+          {/* <Form.Control
             as="textarea"
             value={userMessage}
             onChange={(e) => setUserMessage(e.target.value)}
             placeholder="Your message..."
             disabled={isLoading || !nextState || nextState === "student_answer_if_any_further_question" || nextState === "time_out_message"}
             style={{ borderRadius: "20px", padding: "5px" }}
-          />
+          /> */}
         </Col>
-        <Col xs={10} md={2} className="text-center">
-          <Button
-            variant="success"
-            onClick={handleSendMessage}
-            className="w-100 custom-btn"
-            disabled={isLoading || !nextState || nextState === "student_answer_if_any_further_question" || nextState === "time_out_message"}
-          >
-            Send
-          </Button>
-        </Col>
+        {nextState != "student_answer_if_any_further_question" &&
+          <Col xs={10} md={2} className="text-center">
+            <Button
+              variant="success"
+              onClick={handleSendMessage}
+              className="w-100 custom-btn"
+              disabled={isLoading || !nextState || nextState === "student_answer_if_any_further_question" || nextState === "time_out_message"}
+            >
+              Send
+            </Button>
+          </Col>}
       </Row>
+
+      {/* Add Debug Section at bottom */}
+      {debugMode && (
+        <Row className="mt-3 border-top pt-3">
+          <Col xs={12}>
+            <h5>State JSON (Debugging)</h5>
+            <div
+              style={{
+                maxHeight: '200px',
+                overflowY: 'auto',
+                fontFamily: 'monospace',
+                fontSize: '12px',
+                backgroundColor: '#f8f9fa',
+                padding: '10px',
+                borderRadius: '4px',
+                border: '1px solid #dee2e6'
+              }}
+            >
+              <JsonView data={llmPrompt} />
+            </div>
+          </Col>
+        </Row>
+      )}
     </div>
   );
 }

@@ -6,7 +6,7 @@ import axios from "axios";
 import "../App.css";
 
 
-function TutorChat({studentId}) {
+function TutorChat({ studentId }) {
   const [isLoading, setIsLoading] = useState(false);
   const [aiMessages, setAiMessages] = useState([]);
   const [llmPrompt, setLlmPrompt] = useState("");
@@ -21,6 +21,8 @@ function TutorChat({studentId}) {
   const [selectedTopic, setSelectedTopic] = useState("");
   const [showSummaryScreen, setShowSummaryScreen] = useState(false);
   const [sessionSummary, setSessionSummary] = useState(null); // New state for summary
+  const [savedTimestamp, setSavedTimestamp] = useState("");
+  const [topicCode, setTopicCode] = useState("");
 
   useEffect(() => {
     if (isTutoringStarted && remainingTime >= 0) {
@@ -45,6 +47,7 @@ function TutorChat({studentId}) {
     try {
       setIsLoading(true);
       setSelectedFolder(selectedFolder);
+      setTopicCode(selectedFolder.split('_')[0]);
       setSelectedTopic(selectedTopic);
       const response = await axios.post("api/start-tutoring", {
         folder_name: selectedFolder,
@@ -102,8 +105,6 @@ function TutorChat({studentId}) {
 
   const saveSessionMessages = async () => {
     try {
-      // Extract the part of the selectedTopic before the first underscore
-      const topicCode = selectedFolder.split('_')[0];
 
       // Generate a custom timestamp in the format YYYYMMDD_HHMMSS
       const now = new Date();
@@ -112,19 +113,22 @@ function TutorChat({studentId}) {
       const day = String(now.getDate()).padStart(2, '0');
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
-  
+
       const timestamp = `${year}${month}${day}_${hours}${minutes}`;
-  
+      setSavedTimestamp(timestamp);
+
+      console.log(`saved topic code: ${topicCode}`)
+
       const response = await axios.post("api/save-session", {
         thread_id: threadId,
         student_id: studentId,
         topic_code: topicCode, // Pass the extracted topic code
         time_stamp: timestamp // Pass the custom-formatted timestamp
       });
-  
+
       console.log("Session messages saved successfully.");
-      setSessionSummary(response.data.summary); 
-      setShowSummaryScreen(true); 
+      setSessionSummary(response.data.summary);
+      setShowSummaryScreen(true);
     } catch (error) {
       console.error("Error saving session messages:", error);
     }
@@ -182,14 +186,19 @@ function TutorChat({studentId}) {
   };
   const handleDownloadSessionHistory = async () => {
     try {
+
+      // const topicCode = selectedFolder.split('_')[0];
+
       console.log(threadId)
+      console.log(`download topic code: ${topicCode}`)
       const response = await axios.post(
         "api/download-session",
-        { thread_id: threadId,
+        {
+          thread_id: threadId,
           student_id: studentId,
-          course_code: courseCode,
-          time_stamp: timestamp
-         },
+          topic_code: topicCode,
+          time_stamp: savedTimestamp
+        },
         { responseType: "blob" } // Ensure the response is treated as a file
       );
 
@@ -231,8 +240,8 @@ function TutorChat({studentId}) {
                     {sessionSummary.messages.length > 0 ? (
                       <div
                         className={`p-3 rounded-md ${sessionSummary.messages[sessionSummary.messages.length - 1].role === "AI"
-                            ? "bg-blue-50 border border-blue-300"
-                            : "bg-gray-50 border border-gray-300"
+                          ? "bg-blue-50 border border-blue-300"
+                          : "bg-gray-50 border border-gray-300"
                           }`}
                       >
                         <strong>{sessionSummary.messages[sessionSummary.messages.length - 1].role}:</strong>{" "}
@@ -278,7 +287,7 @@ function TutorChat({studentId}) {
 
       ) : (
         <>
-          
+
           <Modal show={showWarning} onHide={() => setShowWarning(false)} centered>
             <Modal.Header closeButton>
               <Modal.Title>Session Ending Soon</Modal.Title>
@@ -325,9 +334,9 @@ function TutorChat({studentId}) {
             />
           )}
         </>
-        
+
       )}
-      
+
     </Container>
   );
 }
