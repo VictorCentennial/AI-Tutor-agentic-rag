@@ -1,0 +1,85 @@
+
+header .custom-btn {
+    color: #2575fc !important; 
+    border-color: #ffffff !important; 
+    background-color: white !important;
+    
+  }
+
+  
+header .custom-btn:hover{
+    color: #ffffff !important; 
+    border-color: #ffffff !important; 
+    background-color: transparent !important;
+    
+  }
+
+/* styles.css */
+.interaction-box {
+    background-color: rgba(255, 255, 255, 0.1) !important; /* Transparent background */
+    border-radius: 12px;
+    padding: 10px;
+    max-height: 80vh !important; /* Adjust height as needed */
+    margin: 0 !important;
+    overflow-y: auto; /* Enable scrolling for overflow */
+    backdrop-filter: blur(10px); /* Optional: Adds a blur effect to the background */
+    border: 1px solid rgba(255, 255, 255, 0.2)!important; /* Light border for contrast */
+  }
+  
+  .message-bubble {
+    max-width: 70%; /* Limit message width */
+    padding: 10px 16px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    word-wrap: break-word!important;
+  }
+  
+  .ai-message {
+    background-color: rgba(255, 255, 255, 0.795)!important; /* Light blue for AI messages */
+    color: #020202!important; /* White text */
+    align-self: flex-start;
+  }
+  
+  .user-message {
+    background-color: rgb(87, 26, 241)!important; /* Light green for user messages */
+    color: #fff!important; /* White text */
+    align-self: flex-end;
+  }
+  
+  /* Spinner styling */
+  .spinner-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 16px;
+  }
+
+  .input-container{
+    background-color: transparent !important;
+  }
+
+  .custom-btn {
+    color: #ffffff !important;
+    border: 3px !important; 
+    border-color: #ffffff !important; 
+    background-color: transparent !important;
+    
+  }
+  .custom-btn:hover {
+    color: #704ef9 !important;
+    border-width: 3px !important; 
+    border-color: #ffffff !important; 
+    background-color: white!important;
+    
+  }
+  
+  /* Blinking red text for time warning */
+  .blinking-red {
+    animation: blink 1s infinite;
+  }
+  
+  @keyframes blink {
+    50% {
+      color: red;
+    }
+  }
+

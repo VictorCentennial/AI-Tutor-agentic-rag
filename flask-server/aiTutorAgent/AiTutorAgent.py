@@ -1,4 +1,5 @@
 # Import LangChain components
+import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
 
@@ -326,6 +327,88 @@ class AiTutorAgent:
 
                 {messages}
             """
+
+    def general_analysis(self):
+        # Analyze all sessions
+        session_files = self._get_all_session_files()
+        combined_content = self._combine_session_files(session_files)
+        return self._generate_analysis("General Analysis", combined_content)
+
+    def student_analysis(self, student_id: str):
+        # Analyze sessions for a specific student
+        session_files = self._get_session_files_by_student(student_id)
+        combined_content = self._combine_session_files(session_files)
+        return self._generate_analysis(
+            f"Student {student_id} Analysis", combined_content
+        )
+
+    def course_analysis(self, course_code: str):
+        # Analyze sessions for a specific course
+        session_files = self._get_session_files_by_course(course_code)
+        combined_content = self._combine_session_files(session_files)
+        return self._generate_analysis(
+            f"Course {course_code} Analysis", combined_content
+        )
+
+    def day_analysis(self, date: str):
+        # Analyze sessions for a specific day
+        session_files = self._get_session_files_by_date(date)
+        combined_content = self._combine_session_files(session_files)
+        return self._generate_analysis(f"Day {date} Analysis", combined_content)
+
+    def _get_all_session_files(self):
+        SESSION_HISTORY_DIR = "saved_session_history"
+        return [
+            os.path.join(SESSION_HISTORY_DIR, f)
+            for f in os.listdir(SESSION_HISTORY_DIR)
+            if f.endswith(".txt")
+        ]
+
+    def _get_session_files_by_student(self, student_id: str):
+        SESSION_HISTORY_DIR = "saved_session_history"
+        return [
+            os.path.join(SESSION_HISTORY_DIR, f)
+            for f in os.listdir(SESSION_HISTORY_DIR)
+            if f.endswith(f"_{student_id}.txt")
+        ]
+
+    def _get_session_files_by_course(self, course_code: str):
+        SESSION_HISTORY_DIR = "saved_session_history"
+        return [
+            os.path.join(SESSION_HISTORY_DIR, f)
+            for f in os.listdir(SESSION_HISTORY_DIR)
+            if f.split("_")[1] == course_code
+        ]
+
+    def _get_session_files_by_date(self, date: str):
+        SESSION_HISTORY_DIR = "saved_session_history"
+        return [
+            os.path.join(SESSION_HISTORY_DIR, f)
+            for f in os.listdir(SESSION_HISTORY_DIR)
+            if f.startswith(date)
+        ]
+
+    def _combine_session_files(self, session_files: list):
+        combined_content = ""
+        for filepath in session_files:
+            with open(filepath, "r") as file:
+                combined_content += file.read() + "\n"
+        return combined_content
+
+    def _generate_analysis(self, title: str, content: str):
+        # Use LLM to generate analysis
+        prompt = f"""
+            Analyze the following session data for {title}:
+            {content}
+
+            Provide a summary of:
+            1. Key topics covered.
+            2. Types of questions asked.
+            3. Concepts learned.
+            4. Difficulties faced.
+        """
+        response = self.llm.invoke(prompt)
+        return {"summary": response.content}
         self.QUESTION_BREAKDOWN_PROMPT = """
             You are an AI Tutor.
 
