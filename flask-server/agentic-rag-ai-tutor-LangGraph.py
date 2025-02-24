@@ -386,22 +386,45 @@ def continue_tutoring():
     # )
 
     # response = aiTutorAgent.graph.invoke(None, thread)
-    response = aiTutorAgent.graph.invoke(Command(resume=student_response), thread)
-    response_json = messages_to_json(response["messages"])
-    state = aiTutorAgent.graph.get_state(thread)
-    next_state = state.next[0] if state.next else ""
+    # First get the current state
 
-    # print(f"State: {state_to_json(state)}")
-    # logging.info(f"jsonify: {jsonify( {"state": state_to_json(state)})}")
-    # logging.info(f"next_state: {next_state}")
-    return jsonify(
-        {
-            "messages": response_json,
-            "thread_id": thread_id,
-            "state": state_to_json(state),
-            "next_state": next_state,
-        }
-    )
+    try:
+        response = aiTutorAgent.graph.invoke(Command(resume=student_response), thread)
+
+        # # First update the state with the new message
+        # current_state = aiTutorAgent.graph.get_state(thread)
+        # current_messages = current_state.values.get("messages", [])
+        # current_messages.append(HumanMessage(content=student_response))
+
+        # # Update the state with the new message
+        # aiTutorAgent.graph.update_state(thread, {"messages": current_messages})
+
+        # # Then invoke the graph with None to process the updated state
+        # response = aiTutorAgent.graph.invoke(None, thread)
+
+        response_json = messages_to_json(response["messages"])
+        state = aiTutorAgent.graph.get_state(thread)
+        next_state = state.next[0] if state.next else ""
+
+        # print(f"State: {state_to_json(state)}")
+        # logging.info(f"jsonify: {jsonify( {"state": state_to_json(state)})}")
+        # logging.info(f"next_state: {next_state}")
+        return jsonify(
+            {
+                "messages": response_json,
+                "thread_id": thread_id,
+                "state": state_to_json(state),
+                "next_state": next_state,
+            }
+        )
+    except Exception as e:
+        logging.error(f"Error in continue_tutoring: {str(e)}")
+        return (
+            jsonify(
+                {"error": "Failed to continue tutoring session", "details": str(e)}
+            ),
+            500,
+        )
 
 
 @app.route("/save-session", methods=["POST"])
