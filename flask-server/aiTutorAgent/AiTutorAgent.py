@@ -1196,7 +1196,10 @@ class AiTutorAgent:
         return Command(
             # state update
             update={
-                "messages": [AIMessage(content=result)],
+                "messages": [
+                    AIMessage(content=result),
+                    AIMessage(content=self.ANY_FURTHER_QUESTION_PROMPT),
+                ],
                 "student_question": "",
                 "task_breakdown": [],
                 "task_solving_start_index": 0,
