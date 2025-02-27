@@ -15,7 +15,7 @@
     align-items: center;
     height: 100vh; /* Ensures full viewport height */
     font-family: 'Arial', sans-serif;
-    background: linear-gradient(135deg, #6a11cb, #2575fc) !important;
+    background: white;
   }
   
   .login-container {
@@ -36,7 +36,7 @@
   .login-container h1 {
     margin-bottom: 1rem;
     font-size: 2rem;
-    color: #2575fc!important;
+    color: #000000!important;
   }
   
   .button-container {
@@ -44,7 +44,7 @@
   }
   
   .button {
-    background-color: #2575fc!important;
+    background-color: #282829e8!important;
     color: white;
     border: none;
     padding: 0.75rem 1.5rem;
@@ -56,7 +56,7 @@
   }
   
   .button:hover {
-    background-color: #1a5bbf!important;
+    background-color: #000000!important;
   }
   
   

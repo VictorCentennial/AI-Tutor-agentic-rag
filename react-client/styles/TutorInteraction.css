@@ -1,85 +1,65 @@
+header {
+  background-color: #282829 !important; /* Black background */
+  color: white !important; /* White text */
+  padding: 20px 20px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}
 
+/* Ensure the rest of the background is white */
+body {
+  background-color: white !important;
+  margin: 0;
+  font-family: 'Arial', sans-serif; /* Consistent font */
+}
+
+/* Adjust button styles in the header */
 header .custom-btn {
-    color: #2575fc !important; 
-    border-color: #ffffff !important; 
-    background-color: white !important;
-    
-  }
+  color: white !important; /* White text */
+  border-color: white !important; /* White border */
+  background-color: transparent !important; /* Transparent background */
+  transition: all 0.3s ease; /* Smooth hover transition */
+}
 
-  
-header .custom-btn:hover{
-    color: #ffffff !important; 
-    border-color: #ffffff !important; 
-    background-color: transparent !important;
-    
-  }
+header .custom-btn:hover {
+  color: #282829 !important; /* Black text on hover */
+  border-color: white !important; /* White border */
+  background-color: white !important; /* White background on hover */
+  transform: scale(1.05); /* Slight scale effect on hover */
+}
 
-/* styles.css */
+/* Ensure the interaction box and message bubbles are white */
 .interaction-box {
-    background-color: rgba(255, 255, 255, 0.1) !important; /* Transparent background */
-    border-radius: 12px;
-    padding: 10px;
-    max-height: 80vh !important; /* Adjust height as needed */
-    margin: 0 !important;
-    overflow-y: auto; /* Enable scrolling for overflow */
-    backdrop-filter: blur(10px); /* Optional: Adds a blur effect to the background */
-    border: 1px solid rgba(255, 255, 255, 0.2)!important; /* Light border for contrast */
-  }
-  
-  .message-bubble {
-    max-width: 70%; /* Limit message width */
-    padding: 10px 16px;
-    border-radius: 12px;
-    margin-bottom: 8px;
-    word-wrap: break-word!important;
-  }
-  
-  .ai-message {
-    background-color: rgba(255, 255, 255, 0.795)!important; /* Light blue for AI messages */
-    color: #020202!important; /* White text */
-    align-self: flex-start;
-  }
-  
-  .user-message {
-    background-color: rgb(87, 26, 241)!important; /* Light green for user messages */
-    color: #fff!important; /* White text */
-    align-self: flex-end;
-  }
-  
-  /* Spinner styling */
-  .spinner-container {
-    display: flex;
-    justify-content: center;
-    margin-top: 16px;
-  }
+  background-color: white !important; /* White background */
+  padding: 10px; /* Added padding for spacing */
+  border-radius: 8px; /* Rounded corners */
+}
 
-  .input-container{
-    background-color: transparent !important;
-  }
+.message-bubble {
+  background-color: white !important; /* White background for message bubbles */
+  border: 1px solid #ddd !important; /* Light border for contrast */
+  margin: 5px 10px; /* Spacing between messages */
+  padding: 3px 10px; /* Padding inside bubbles */
+  border-radius: 12px; /* Rounded corners */
+}
 
-  .custom-btn {
-    color: #ffffff !important;
-    border: 3px !important; 
-    border-color: #ffffff !important; 
-    background-color: transparent !important;
-    
-  }
-  .custom-btn:hover {
-    color: #704ef9 !important;
-    border-width: 3px !important; 
-    border-color: #ffffff !important; 
-    background-color: white!important;
-    
-  }
-  
-  /* Blinking red text for time warning */
-  .blinking-red {
-    animation: blink 1s infinite;
-  }
-  
-  @keyframes blink {
-    50% {
-      color: red;
-    }
-  }
+/* AI message styling */
+.ai-message {
+  background-color: #f0f0f0 !important; /* Light gray for AI messages */
+  color: #333 !important; /* Dark gray text for readability */
+  border-radius: 12px 12px 12px 4px; /* Rounded corners for AI messages */
+}
 
+/* User message styling */
+.user-message {
+  background-color: #2575fc !important; /* Blue for user messages */
+  color: #fff !important; /* White text */
+  border-radius: 12px 12px 4px 12px; /* Rounded corners for user messages */
+}
+
+/* Ensure the input container is white */
+.input-container {
+  background-color: white !important;
+  padding: 16px; /* Added padding for spacing */
+  border-top: 1px solid #ddd; /* Light border for separation */
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}

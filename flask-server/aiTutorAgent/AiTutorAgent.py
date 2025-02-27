@@ -2,6 +2,7 @@
 import os
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
+import logging
 
 # from langchain.document_loaders import TextLoader
 from langchain_community.document_loaders import TextLoader
@@ -10,6 +11,12 @@ from langchain.memory import ConversationBufferMemory
 from langchain_core.runnables import RunnableSequence
 from langgraph.graph.message import add_messages
 from langchain_core.messages import AnyMessage, HumanMessage, AIMessage, ChatMessage
+import matplotlib
+
+matplotlib.use("Agg")  # Use the 'Agg' backend
+import matplotlib.pyplot as plt
+import pandas as pd
+
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -465,13 +472,11 @@ class AiTutorAgent:
         """
 
     def general_analysis(self):
-        # Analyze all sessions
         session_files = self._get_all_session_files()
         combined_content = self._combine_session_files(session_files)
         return self._generate_analysis("General Analysis", combined_content)
 
     def student_analysis(self, student_id: str):
-        # Analyze sessions for a specific student
         session_files = self._get_session_files_by_student(student_id)
         combined_content = self._combine_session_files(session_files)
         return self._generate_analysis(
@@ -479,7 +484,6 @@ class AiTutorAgent:
         )
 
     def course_analysis(self, course_code: str):
-        # Analyze sessions for a specific course
         session_files = self._get_session_files_by_course(course_code)
         combined_content = self._combine_session_files(session_files)
         return self._generate_analysis(
@@ -487,7 +491,6 @@ class AiTutorAgent:
         )
 
     def day_analysis(self, date: str):
-        # Analyze sessions for a specific day
         session_files = self._get_session_files_by_date(date)
         combined_content = self._combine_session_files(session_files)
         return self._generate_analysis(f"Day {date} Analysis", combined_content)
@@ -515,6 +518,11 @@ class AiTutorAgent:
             for f in os.listdir(SESSION_HISTORY_DIR)
             if f.split("_")[1] == course_code
         ]
+        return [
+            os.path.join(SESSION_HISTORY_DIR, f)
+            for f in os.listdir(SESSION_HISTORY_DIR)
+            if f.split("_")[2] == course_code
+        ]
 
     def _get_session_files_by_date(self, date: str):
         SESSION_HISTORY_DIR = "saved_session_history"
@@ -527,24 +535,243 @@ class AiTutorAgent:
     def _combine_session_files(self, session_files: list):
         combined_content = ""
         for filepath in session_files:
-            with open(filepath, "r") as file:
-                combined_content += file.read() + "\n"
+            try:
+                with open(filepath, "r") as file:
+                    combined_content += file.read() + "\n"
+            except Exception as e:
+                logging.error(f"Error reading file {filepath}: {str(e)}")
         return combined_content
 
     def _generate_analysis(self, title: str, content: str):
-        # Use LLM to generate analysis
-        prompt = f"""
-            Analyze the following session data for {title}:
-            {content}
+        # Customize the prompt based on the type of analysis
+        if "General Analysis" in title:
+            prompt = f"""
+                Analyze the following session data for {title}:
+                {content}
 
-            Provide a summary of:
-            1. Key topics covered.
-            2. Types of questions asked.
-            3. Concepts learned.
-            4. Difficulties faced.
-        """
+                Provide a detailed summary of:
+                1. Key insights across all sessions.
+                2. Common patterns or trends.
+                3. Overall performance metrics.
+            """
+        elif "Student" in title:
+            prompt = f"""
+                Analyze the following session data for {title}:
+                {content}
+
+                Provide a detailed summary of:
+                1. Key insights for this student.
+                2. Performance trends.
+                3. Areas of improvement.
+            """
+        elif "Course" in title:
+            prompt = f"""
+                Analyze the following session data for {title}:
+                {content}
+
+                Provide a detailed summary of:
+                1. Key insights for this course.
+                2. Common challenges faced by students.
+                3. Overall course performance.
+            """
+        elif "Day" in title:
+            prompt = f"""
+                Analyze the following session data for {title}:
+                {content}
+
+                Provide a detailed summary of:
+                1. Key insights for this day.
+                2. Session activity trends.
+                3. Notable events or issues.
+            """
+        else:
+            prompt = f"""
+                Analyze the following session data:
+                {content}
+
+                Provide a summary of:
+                1. Key insights.
+                2. Trends and patterns.
+                3. Performance metrics.
+            """
+
+        # Generate analysis using LLM
         response = self.llm.invoke(prompt)
-        return {"summary": response.content}
+
+        # Generate visualizations based on session data
+        visualizations = self._generate_visualizations(title)
+
+        return {"summary": response.content, "visualizations": visualizations}
+
+    def _generate_visualizations(self, title: str):
+        try:
+            logging.info(f"Generating visualizations for: {title}")
+
+            # Ensure the visualizations directory exists
+            if not os.path.exists("static/visualizations"):
+                os.makedirs("static/visualizations")
+
+            # Get session data
+            session_files = self._get_all_session_files()
+            session_data = []
+
+            for filepath in session_files:
+                filename = os.path.basename(filepath)
+                parts = filename.split("_")
+                if len(parts) == 4:
+                    date, time, course_code, student_id = parts
+                    student_id = student_id.split(".")[0]  # Remove .txt
+                    session_data.append(
+                        {
+                            "date": date,
+                            "time": time,
+                            "course_code": course_code,
+                            "student_id": student_id,
+                        }
+                    )
+
+            # Convert session data to a DataFrame
+            df = pd.DataFrame(session_data)
+
+            # Generate visualizations based on the type of analysis
+            if "Student" in title:
+                student_id = title.replace("Student ", "").replace(" Analysis", "")
+                student_sessions = df[df["student_id"] == student_id]
+
+                # Bar graph: Sessions per date
+                session_counts = student_sessions["date"].value_counts().sort_index()
+                plt.figure(figsize=(10, 6))
+                session_counts.plot(kind="bar", color="skyblue")
+                plt.title(f"Sessions for Student {student_id}")
+                plt.xlabel("Date")
+                plt.ylabel("Number of Sessions")
+                plt.xticks(rotation=45, ha="right")
+                plt.tight_layout()
+                plt.savefig(f"static/visualizations/{title}_sessions_bar.png")
+                plt.close()
+
+                # Pie chart: Sessions per course
+                course_counts = student_sessions["course_code"].value_counts()
+                plt.figure(figsize=(8, 8))
+                course_counts.plot(
+                    kind="pie",
+                    autopct="%1.1f%%",
+                    colors=["lightgreen", "lightcoral", "lightskyblue"],
+                )
+                plt.title(f"Course Distribution for Student {student_id}")
+                plt.ylabel("")
+                plt.savefig(f"static/visualizations/{title}_courses_pie.png")
+                plt.close()
+
+                return {
+                    "sessions_bar_chart": f"visualizations/{title}_sessions_bar.png",
+                    "courses_pie_chart": f"visualizations/{title}_courses_pie.png",
+                }
+
+            elif "Course" in title:
+                course_code = title.replace("Course ", "").replace(" Analysis", "")
+                course_sessions = df[df["course_code"] == course_code]
+
+                # Line graph: Sessions over time
+                session_counts = course_sessions["date"].value_counts().sort_index()
+                plt.figure(figsize=(10, 6))
+                session_counts.plot(kind="line", marker="o", color="purple")
+                plt.title(f"Sessions for Course {course_code}")
+                plt.xlabel("Date")
+                plt.ylabel("Number of Sessions")
+                plt.xticks(rotation=45, ha="right")
+                plt.tight_layout()
+
+                # Replace spaces with underscores in the title for the filename
+                filename = title.replace(" ", "_")
+                plt.savefig(f"static/visualizations/{filename}_sessions_line.png")
+                plt.close()
+
+                # Bar graph: Sessions per student
+                student_counts = course_sessions["student_id"].value_counts()
+                plt.figure(figsize=(10, 6))
+                student_counts.plot(kind="bar", color="orange")
+                plt.title(f"Student Participation in Course {course_code}")
+                plt.xlabel("Student ID")
+                plt.ylabel("Number of Sessions")
+                plt.xticks(rotation=45, ha="right")
+                plt.tight_layout()
+                plt.savefig(f"static/visualizations/{filename}_students_bar.png")
+                plt.close()
+
+                return {
+                    "sessions_line_chart": f"visualizations/{filename}_sessions_line.png",
+                    "students_bar_chart": f"visualizations/{filename}_students_bar.png",
+                }
+
+            elif "Day" in title:
+                date = title.replace("Day ", "").replace(" Analysis", "")
+                day_sessions = df[df["date"] == date]
+
+                # Pie chart: Sessions per course
+                course_counts = day_sessions["course_code"].value_counts()
+                plt.figure(figsize=(8, 8))
+                course_counts.plot(
+                    kind="pie",
+                    autopct="%1.1f%%",
+                    colors=["gold", "lightblue", "lightgreen"],
+                )
+                plt.title(f"Course Distribution on {date}")
+                plt.ylabel("")
+                plt.savefig(f"static/visualizations/{title}_courses_pie.png")
+                plt.close()
+
+                # Bar graph: Sessions per student
+                student_counts = day_sessions["student_id"].value_counts()
+                plt.figure(figsize=(10, 6))
+                student_counts.plot(kind="bar", color="lightcoral")
+                plt.title(f"Student Participation on {date}")
+                plt.xlabel("Student ID")
+                plt.ylabel("Number of Sessions")
+                plt.xticks(rotation=45, ha="right")
+                plt.tight_layout()
+                plt.savefig(f"static/visualizations/{title}_students_bar.png")
+                plt.close()
+
+                return {
+                    "courses_pie_chart": f"visualizations/{title}_courses_pie.png",
+                    "students_bar_chart": f"visualizations/{title}_students_bar.png",
+                }
+
+            else:  # General Analysis
+                # Bar graph: Total sessions over time
+                session_counts = df["date"].value_counts().sort_index()
+                plt.figure(figsize=(10, 6))
+                session_counts.plot(kind="bar", color="teal")
+                plt.title("Total Sessions Over Time")
+                plt.xlabel("Date")
+                plt.ylabel("Number of Sessions")
+                plt.xticks(rotation=45, ha="right")
+                plt.tight_layout()
+                plt.savefig(f"static/visualizations/{title}_sessions_bar.png")
+                plt.close()
+
+                # Pie chart: Sessions per course
+                course_counts = df["course_code"].value_counts()
+                plt.figure(figsize=(8, 8))
+                course_counts.plot(
+                    kind="pie",
+                    autopct="%1.1f%%",
+                    colors=["lightpink", "lightblue", "lightgreen"],
+                )
+                plt.title("Course Distribution")
+                plt.ylabel("")
+                plt.savefig(f"static/visualizations/{title}_courses_pie.png")
+                plt.close()
+
+                return {
+                    "sessions_bar_chart": f"visualizations/{title}_sessions_bar.png",
+                    "courses_pie_chart": f"visualizations/{title}_courses_pie.png",
+                }
+
+        except Exception as e:
+            logging.error(f"Error generating visualizations: {str(e)}")
+            return {"error": "Failed to generate visualizations"}
 
     def retry_on_error(
         max_retries: int = 3,
