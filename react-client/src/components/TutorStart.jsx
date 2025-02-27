@@ -157,7 +157,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
 
               <div className="text-center">
                 <Button
-                  variant="primary"
+                  variant="dark"
                   onClick={handleUpdateVectorStore}
                   className="w-50"
                   disabled={isLoading || !selectedFolder || isEmbeddingsLoading} // Only enable if a folder is selected
@@ -194,7 +194,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
 
               <div className="text-center">
                 <Button
-                  variant="primary"
+                  variant="dark"
                   onClick={handleStart}
                   className="w-50"
                   disabled={isLoading || !selectedFolder || isEmbeddingsLoading}

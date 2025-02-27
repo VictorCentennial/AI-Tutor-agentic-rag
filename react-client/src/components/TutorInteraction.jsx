@@ -1,27 +1,15 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Row, Col, Form, Button, Spinner } from "react-bootstrap";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { JsonView } from "react-json-view-lite";
 import "react-json-view-lite/dist/index.css";
 import MermaidDiagram from "./MermaidDiagram";
 import PropTypes from "prop-types";
 import "../../styles/TutorInteraction.css";
+import axios from "axios";
+import { Button, Row, Col, Form, Spinner } from "react-bootstrap";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const debugMode = import.meta.env.VITE_DEBUG_MODE === "true";
-
-// Header Component
-const Header = () => (
-  <header className="d-flex justify-content-between align-items-center py-1 border-bottom">
-    <div className="d-flex align-items-center">
-      <h3 className="text-primary mb-0 me-3">AI Tutor</h3>
-    </div>
-    <div className="d-flex align-items-center">
-      <Button variant="outline-primary" className="me-2 custom-btn">View Session History</Button>
-      <Button variant="outline-primary" className="custom-btn">View Progress</Button>
-    </div>
-  </header>
-);
 
 function TutorInteraction({
   aiMessages,
@@ -31,11 +19,14 @@ function TutorInteraction({
   nextState,
   selectedFolder,
   selectedTopic,
-  remainingTime
+  remainingTime,
+  studentId,
 }) {
   const [userMessage, setUserMessage] = useState("");
   const interactionBoxRef = useRef(null);
   const [graphData, setGraphData] = useState(null);
+  const [showProgress, setShowProgress] = useState(false); // State to manage progress visibility
+  const [progressData, setProgressData] = useState(null); // State to store progress data
 
   // Fetch graph data on mount
   useEffect(() => {
@@ -52,6 +43,7 @@ function TutorInteraction({
     fetchGraphData();
   }, []);
 
+  // Format time
   const formatTime = (timeInSeconds) => {
     if (timeInSeconds <= 0) return "00:00";
     const minutes = Math.floor(timeInSeconds / 60);
@@ -59,6 +51,7 @@ function TutorInteraction({
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   };
 
+  // Get Mermaid diagram definition
   const getMermaidDefinition = (graph) => {
     if (!graph) return "";
     let mermaidDef = "graph TD;\n";
@@ -73,12 +66,14 @@ function TutorInteraction({
     return mermaidDef;
   };
 
+  // Scroll to the bottom of the interaction box
   useEffect(() => {
     if (interactionBoxRef.current) {
       interactionBoxRef.current.scrollTop = interactionBoxRef.current.scrollHeight;
     }
   }, [aiMessages]);
 
+  // Handle sending a message
   const handleSendMessage = useCallback(() => {
     if (userMessage.trim()) {
       onSend(userMessage);
@@ -86,6 +81,7 @@ function TutorInteraction({
     }
   }, [onSend, userMessage]);
 
+  // Handle Enter key press for sending messages
   useEffect(() => {
     const handleKeyPress = (event) => {
       if (event.key === "Enter" && event.shiftKey) {
@@ -97,12 +93,105 @@ function TutorInteraction({
     return () => document.removeEventListener("keydown", handleKeyPress);
   }, [handleSendMessage]);
 
+  // Fetch student progress data
+  const fetchStudentProgress = async () => {
+    try {
+      const endpoint = "/api/student-analysis";
+      const payload = { student_id: studentId };
+      const response = await axios.post(endpoint, payload);
+      setProgressData(response.data); // Store the fetched data
+      setShowProgress(true); // Show the progress section
+    } catch (error) {
+      console.error("Error fetching student progress:", error);
+      alert("Failed to fetch progress data. Please try again.");
+    }
+  };
+
+  // Format summary text (similar to AdminDashboard)
+  const formatSummary = (summary) => {
+    return summary
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold
+      .replace(/\*(.*?)\*/g, "<em>$1</em>") // Italic
+      .replace(/\n/g, "<br />") // Line breaks
+      .replace(/\*\s(.*?)\n/g, "<li>$1</li>"); // Convert bullet points to list items
+  };
+
+  // Header component with "View Progress" button
+  const Header = () => (
+    <header className="d-flex justify-content-between align-items-center py-3 border-bottom">
+      <div className="d-flex align-items-center">
+        <h3 className="text-white mb-0 me-3">AI Tutor</h3>
+      </div>
+      <div className="d-flex align-items-center">
+        <Button variant="outline-light" className="me-2 custom-btn">
+          View Session History
+        </Button>
+        <Button
+          variant="outline-light"
+          className="custom-btn"
+          onClick={fetchStudentProgress} // Fetch progress on button click
+        >
+          View Progress
+        </Button>
+      </div>
+    </header>
+  );
+
+  // Render progress section
+  const renderProgressSection = () => {
+    if (!showProgress || !progressData) return null;
+
+    return (
+      <div className="progress-section mt-3 p-3 border rounded">
+        <h4>Student Progress</h4>
+        <div className="card">
+          <div className="card-header">
+            <h5 className="card-title">Summary</h5>
+          </div>
+          <div className="card-content">
+            <div
+              dangerouslySetInnerHTML={{
+                __html: formatSummary(progressData.summary),
+              }}
+            />
+          </div>
+        </div>
+        <div className="visualizations mt-3">
+          {Object.entries(progressData.visualizations).map(([key, src]) => (
+            <div className="card mb-3" key={key}>
+              <div className="card-header">
+                <h5 className="card-title">
+                  {key
+                    .split("_")
+                    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(" ")}
+                </h5>
+              </div>
+              <div className="card-content">
+                <div className="visualization-image">
+                  <img
+                    src={`http://localhost:5000/static/${src}`}
+                    alt={key}
+                    className="img-fluid"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="flex-grow-1">
+    <div className="d-flex flex-column" style={{ height: "100vh", backgroundColor: "white" }}>
       <Header />
-      <div className="d-flex justify-content-between align-items-center py-2 border-bottom">
+      <div className="d-flex justify-content-between align-items-center py-1">
         <div>
-          <span className={remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""}>🕒 Time Left: </span> {formatTime(remainingTime)}
+          <span className={remainingTime <= 300 && remainingTime !== 0 ? "blinking-red" : ""}>
+            🕒 Time Left:{" "}
+          </span>
+          {formatTime(remainingTime)}
         </div>
         <div>
           <span className="fw-bold">Course:</span> {selectedFolder || "N/A"}
@@ -111,11 +200,16 @@ function TutorInteraction({
           <span className="fw-bold">Topic:</span> {selectedTopic || "All Topics"}
         </div>
       </div>
-      <Row className="mt-2">
-        <Col xs={12} className="mb-2">
-          <div className="interaction-box" ref={interactionBoxRef}>
+      <Row className="mt-2 flex-grow-1" style={{ overflowY: "auto" }}>
+        <Col xs={12} className="mb-2 " style={{ backgroundColor: "white" }}>
+          <div className="interaction-box " ref={interactionBoxRef}>
             {aiMessages.map((msg, index) => (
-              <div key={index} className={`d-flex flex-column ${msg.role === "ai" ? "align-items-start" : "align-items-end"}`}>
+              <div
+                key={index}
+                className={`d-flex flex-column ${
+                  msg.role === "ai" ? "align-items-start" : "align-items-end"
+                }`}
+              >
                 <div className={`message-bubble ${msg.role === "ai" ? "ai-message" : "user-message"}`}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                 </div>
@@ -129,29 +223,7 @@ function TutorInteraction({
           </div>
         </Col>
       </Row>
-      {/* Prompt Box
-        {debugMode && graphData && (
-        <Col xs={12} md={4} className="mb-3">
-          <div className="prompt-box">
-            
-              <>
-                <h5>LangGraph Workflow</h5>
-                <MermaidDiagram definition={getMermaidDefinition(graphData)} />
-                <h5 className="mt-4">State JSON (Debugging)</h5>
-                <div
-                  style={{
-                    maxHeight: "400px",
-                    overflowY: "auto",
-                    fontFamily: "monospace",
-                    fontSize: "12px",
-                  }}
-                >
-                  <JsonView data={llmPrompt} />
-                </div>
-              </>      
-          </div>
-        </Col>
-        )} */}
+      {renderProgressSection()} {/* Render progress section */}
       <Row className="mt-1 input-container">
         <Col xs={8} md={10} className="mb-0">
           <Form.Control
@@ -191,7 +263,8 @@ TutorInteraction.propTypes = {
   nextState: PropTypes.string.isRequired,
   selectedFolder: PropTypes.string.isRequired,
   selectedTopic: PropTypes.string,
-  remainingTime: PropTypes.number.isRequired
+  remainingTime: PropTypes.number.isRequired,
+  studentId: PropTypes.string.isRequired,
 };
 
 export default TutorInteraction;

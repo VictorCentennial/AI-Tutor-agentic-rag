@@ -64,6 +64,7 @@ function TutorChat({studentId}) {
 
       setIsTutoringStarted(true);
       setRemainingTime(selectedDuration * 60);
+      
 
     } catch (error) {
       console.error("Error starting tutoring session:", error);
@@ -209,10 +210,10 @@ function TutorChat({studentId}) {
 
 
   return (
-    <Container fluid className="mt-4 relative w-full">
+    <Container fluid className="mt-0 relative w-full p-0">
       {showSummaryScreen ? (
         <div className="summary-screen flex items-center justify-center h-screen bg-gray-100">
-          <div className="p-6 bg-white shadow-lg rounded-2xl w-2/3">
+          <div className="p-6 bg-white  rounded-2xl w-2/3">
             <h1 className="text-2xl font-bold text-center mb-4">Summary of Session</h1>
             {sessionSummary ? (
               <div className="text-lg space-y-4">
@@ -247,9 +248,9 @@ function TutorChat({studentId}) {
                 </div>
                 <div className="text-center">
                   <Button
-                    variant="primary"
+                    variant="dark"
                     onClick={handleDownloadSessionHistory}
-                    className="mb-3"
+                    className="mb-3 mt-3"
                   >
                     Download Session history
                   </Button>
@@ -257,7 +258,7 @@ function TutorChat({studentId}) {
                 </div>
                 <div className="text-center">
                   <Button
-                    variant="primary"
+                    variant="dark"
                     onClick={() => window.location.reload()}
                     className="mb-3"
                   >
@@ -322,6 +323,7 @@ function TutorChat({studentId}) {
               selectedTopic={selectedTopic}
               threadId={threadId}
               remainingTime={remainingTime}
+              studentId={studentId}
             />
           )}
         </>

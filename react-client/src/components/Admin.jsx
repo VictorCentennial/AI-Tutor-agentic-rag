@@ -1,18 +1,67 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Home, BarChart, BookOpen } from "lucide-react";
 import axios from "axios";
+import "../../styles/Admin.css";
 
 const AdminDashboard = () => {
+  const [currentView, setCurrentView] = useState("main");
   const [analysisType, setAnalysisType] = useState(null);
   const [filters, setFilters] = useState({});
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [statistics, setStatistics] = useState({
+    totalSessions: 0,
+    totalStudents: 0,
+    totalCourses: 0
+  });
 
+  // Fetch statistics when the component mounts
+  useEffect(() => {
+    const fetchStatistics = async () => {
+      try {
+        const response = await axios.get("/api/statistics");
+        // Map the backend response to the expected structure
+        const mappedStatistics = {
+          totalSessions: response.data.total_sessions,
+          totalStudents: response.data.total_students,
+          totalCourses: response.data.total_courses
+        };
+        setStatistics(mappedStatistics); // Set the mapped statistics
+      } catch (error) {
+        console.error("Error fetching statistics:", error);
+        alert("Failed to fetch statistics. Please try again.");
+      }
+    };
+
+    fetchStatistics();
+  }, []);
+
+  // Rest of your code remains unchanged...
   const handleAnalysisType = (type) => {
     setAnalysisType(type);
     setFilters({});
     setAnalysisResult(null);
+    setCurrentView("analytics");
+  };
+
+  const validateInputs = () => {
+    if (analysisType === "student" && !filters.student_id) {
+      alert("Please enter a valid Student ID.");
+      return false;
+    }
+    if (analysisType === "course" && !filters.course_code) {
+      alert("Please enter a valid Course Code.");
+      return false;
+    }
+    if (analysisType === "day" && !/^\d{8}$/.test(filters.date)) {
+      alert("Please enter a valid date in YYYYMMDD format.");
+      return false;
+    }
+    return true;
   };
 
   const fetchAnalysis = async () => {
+    if (!validateInputs()) return;
+
     try {
       let endpoint = "";
       let payload = {};
@@ -41,153 +90,198 @@ const AdminDashboard = () => {
       setAnalysisResult(response.data);
     } catch (error) {
       console.error("Error fetching analysis:", error);
+      alert("Failed to fetch analysis. Please try again.");
     }
   };
 
-  // Styles
-  const styles = {
-    container: {
-      backgroundColor: "#1E1E2F", // Dark blue background
-      color: "#FFFFFF", // White text
-      padding: "20px",
-      borderRadius: "10px",
-      fontFamily: "Arial, sans-serif",
-    },
-    header: {
-      fontSize: "24px",
-      fontWeight: "bold",
-      marginBottom: "20px",
-    },
-    buttonContainer: {
-      display: "flex",
-      gap: "10px",
-      marginBottom: "20px",
-    },
-    button: {
-      backgroundColor: "#4CAF50", // Green
-      color: "#FFFFFF",
-      border: "none",
-      padding: "10px 20px",
-      borderRadius: "5px",
-      cursor: "pointer",
-      fontSize: "14px",
-    },
-    buttonHover: {
-      backgroundColor: "#45a049", // Darker green on hover
-    },
-    input: {
-      padding: "10px",
-      borderRadius: "5px",
-      border: "1px solid #ccc",
-      marginBottom: "10px",
-      width: "100%",
-      maxWidth: "300px",
-    },
-    resultContainer: {
-      backgroundColor: "#2D2D44", // Slightly lighter dark blue
-      padding: "15px",
-      borderRadius: "5px",
-      marginTop: "20px",
-    },
-    resultText: {
-      whiteSpace: "pre-wrap",
-      wordWrap: "break-word",
-      color: "black"
-    },
+  const formatSummary = (summary) => {
+    return summary
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\n/g, '<br />')
+      .replace(/\*\s(.*?)\n/g, '<li>$1</li>');
   };
 
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.header}>Admin Dashboard</h1>
+  const renderAnalysisResults = () => (
+    analysisResult && (
+      <div className="analysis-results">
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">Analysis Summary</h3>
+          </div>
+          <div className="card-content">
+            <div dangerouslySetInnerHTML={{ __html: formatSummary(analysisResult.summary) }} />
+          </div>
+        </div>
+        <div className="visualizations">
+          {Object.entries(analysisResult.visualizations).map(([key, src]) => (
+            <div className="card" key={key}>
+              <div className="card-header">
+                <h3 className="card-title">
+                  {key.split('_').map(word => 
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                  ).join(' ')}
+                </h3>
+              </div>
+              <div className="card-content">
+                <div className="visualization-image">
+                  <img
+                    src={`http://localhost:5000/static/${src}`}
+                    alt={key}
+                    className="image"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  );
 
-      <div style={styles.buttonContainer}>
-        <button
-          style={styles.button}
-          onClick={() => handleAnalysisType("general")}
-        >
-          View General Model Analysis
+  const navItems = [
+    { id: "main", label: "Dashboard", icon: Home },
+    { id: "updateCourse", label: "Courses", icon: BookOpen },
+    { 
+      id: "analytics", 
+      label: "Analytics", 
+      icon: BarChart,
+      subItems: [
+        { id: "general", label: "General Model Analysis" },
+        { id: "student", label: "Student Analysis" },
+        { id: "course", label: "Course Analysis" },
+        { id: "day", label: "Daily Analysis" }
+      ]
+    }
+  ];
+
+  const DropdownMenu = ({ subItems, handleAnalysisType }) => {
+    const [isOpen, setIsOpen] = useState(false);
+  
+    return (
+      <div className="dropdown">
+        <button className="dropdown-toggle" onClick={() => setIsOpen(!isOpen)}>
+          Analytics
         </button>
-        <button
-          style={styles.button}
-          onClick={() => handleAnalysisType("student")}
-        >
-          View Student Specific Analysis
+        {isOpen && (
+          <div className="dropdown-menu">
+            {subItems.map((item) => (
+              <button
+                key={item.id}
+                className="dropdown-item"
+                onClick={() => {
+                  handleAnalysisType(item.id);
+                  setIsOpen(false);
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderAnalysisFilters = () => (
+    <div className="filters">
+      {analysisType === "student" && (
+        <input
+          type="text"
+          placeholder="Enter Student ID"
+          value={filters.student_id || ""}
+          onChange={(e) => setFilters({ ...filters, student_id: e.target.value })}
+          className="filter-input"
+        />
+      )}
+      {analysisType === "course" && (
+        <input
+          type="text"
+          placeholder="Enter Course Code"
+          value={filters.course_code || ""}
+          onChange={(e) => setFilters({ ...filters, course_code: e.target.value })}
+          className="filter-input"
+        />
+      )}
+      {analysisType === "day" && (
+        <input
+          type="text"
+          placeholder="Enter Date (YYYYMMDD)"
+          value={filters.date || ""}
+          onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+          className="filter-input"
+        />
+      )}
+      {analysisType && (
+        <button className="fetch-button" onClick={fetchAnalysis}>
+          Fetch Analysis
         </button>
-        <button
-          style={styles.button}
-          onClick={() => handleAnalysisType("course")}
-        >
-          View Course Specific Analysis
-        </button>
-        <button
-          style={styles.button}
-          onClick={() => handleAnalysisType("day")}
-        >
-          View Day Specific Analysis
-        </button>
+      )}
+    </div>
+  );
+
+  const renderHomePage = () => (
+    <div className="home-page">
+      <div className="statistics">
+        <div className="statistic-card">
+          <h3>Total Sessions</h3>
+          <p>{statistics.totalSessions}</p>
+        </div>
+        <div className="statistic-card">
+          <h3>Total Students</h3>
+          <p>{statistics.totalStudents}</p>
+        </div>
+        <div className="statistic-card">
+          <h3>Total Courses</h3>
+          <p>{statistics.totalCourses}</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="dashboard-container">
+      <div className="sidebar">
+        <div className="sidebar-content">
+          <h1 className="sidebar-title">Admin Dashboard</h1>
+          <nav className="nav">
+            {navItems.map(({ id, label, icon: Icon, subItems }) => (
+              <div key={id}>
+                {subItems ? (
+                  <DropdownMenu subItems={subItems} handleAnalysisType={handleAnalysisType} />
+                ) : (
+                  <button
+                    className={`nav-button ${currentView === id ? "active" : ""}`}
+                    onClick={() => setCurrentView(id)}
+                  >
+                    <Icon className="nav-icon" />
+                    {label}
+                  </button>
+                )}
+              </div>
+            ))}
+          </nav>
+        </div>
       </div>
 
-      {analysisType && (
-        <div>
-          <h2>{analysisType.replace(/-/g, " ").toUpperCase()} Analysis</h2>
+      <div className="main-content">
+        <div className="content">
+          <div className="header">
+            <h2 className="header-title">
+              {currentView === "analytics" ? "Analytics Report" :
+               currentView === "updateCourse" ? "Course Management" :
+               analysisType ? `${analysisType.charAt(0).toUpperCase() + analysisType.slice(1)} Analysis` :
+               "Welcome to Admin Dashboard"}
+            </h2>
+          </div>
 
-          {/* Render filters based on analysis type */}
-          {analysisType === "student" && (
-            <div>
-              <input
-                style={styles.input}
-                type="text"
-                placeholder="Enter Student ID"
-                value={filters.student_id || ""}
-                onChange={(e) =>
-                  setFilters({ ...filters, student_id: e.target.value })
-                }
-              />
-            </div>
-          )}
-
-          {analysisType === "course" && (
-            <div>
-              <input
-                style={styles.input}
-                type="text"
-                placeholder="Enter Course Code"
-                value={filters.course_code || ""}
-                onChange={(e) =>
-                  setFilters({ ...filters, course_code: e.target.value })
-                }
-              />
-            </div>
-          )}
-
-          {analysisType === "day" && (
-            <div>
-              <input
-                style={styles.input}
-                type="text"
-                placeholder="Enter Date (YYYYMMDD)"
-                value={filters.date || ""}
-                onChange={(e) =>
-                  setFilters({ ...filters, date: e.target.value })
-                }
-              />
-            </div>
-          )}
-
-          <button style={styles.button} onClick={fetchAnalysis}>
-            Fetch Analysis
-          </button>
+          <div className="content-body">
+            {currentView === "main" && renderHomePage()}
+            {currentView === "analytics" && renderAnalysisFilters()}
+            {analysisResult && renderAnalysisResults()}
+          </div>
         </div>
-      )}
-
-      {analysisResult && (
-        <div style={styles.resultContainer}>
-          <h3>Analysis Results</h3>
-          <pre style={styles.resultText}>
-            {JSON.stringify(analysisResult, null, 2)}
-          </pre>
-        </div>
-      )}
+      </div>
     </div>
   );
 };

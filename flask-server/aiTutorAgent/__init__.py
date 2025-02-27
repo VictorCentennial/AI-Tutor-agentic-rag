@@ -10,7 +10,7 @@ from langgraph.checkpoint.memory import MemorySaver
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GOOGLE_MODEL_NAME = os.getenv(
-    "GOOGLE_MODEL_NAME", "gemini-pro"
+    "GOOGLE_MODEL_NAME", "gemini-1.5-pro-latest"
 )  # Use "gemini-pro" or your model name
 
 # memory = SqliteSaver(conn=sqlite3.connect(":memory:", check_same_thread=False))
