@@ -516,11 +516,6 @@ class AiTutorAgent:
         return [
             os.path.join(SESSION_HISTORY_DIR, f)
             for f in os.listdir(SESSION_HISTORY_DIR)
-            if f.split("_")[1] == course_code
-        ]
-        return [
-            os.path.join(SESSION_HISTORY_DIR, f)
-            for f in os.listdir(SESSION_HISTORY_DIR)
             if f.split("_")[2] == course_code
         ]
 
