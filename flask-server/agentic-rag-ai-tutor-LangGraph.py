@@ -546,6 +546,10 @@ def update_duration():
         return jsonify({"error": "Failed to update duration", "details": str(e)}), 500
 
 
+SESSION_HISTORY_DIR = "saved_session_history"
+COURSE_MATERIAL_DIR = "course_material"
+
+
 @app.route("/get-sessions", methods=["POST"])
 def get_sessions():
     try:
@@ -554,16 +558,14 @@ def get_sessions():
         date = data.get("date")
         course_code = data.get("course_code")
 
-        SESSION_HISTORY_DIR = "saved_session_history"
         sessions = []
 
         for filename in os.listdir(SESSION_HISTORY_DIR):
             if filename.endswith(".txt"):
-                # Extract metadata from filename
-                parts = filename.split("_")
-                if len(parts) == 3:
-                    file_date, file_course, file_student_id = parts
-                    file_student_id = file_student_id.split(".")[0]  # Remove .txt
+                # Use regex to extract parts of the filename
+                match = re.match(r"(\d{8})_(\d{4})_(.+)_(.+)\.txt", filename)
+                if match:
+                    file_date, file_time, file_course, file_student_id = match.groups()
 
                     # Apply filters (only check fields that are provided)
                     matches_student_id = not student_id or file_student_id == student_id
@@ -577,6 +579,7 @@ def get_sessions():
                                 "student_id": file_student_id,
                                 "course_code": file_course,
                                 "date": file_date,
+                                "time": file_time,
                                 "filepath": os.path.join(SESSION_HISTORY_DIR, filename),
                             }
                         )
@@ -660,6 +663,58 @@ def day_analysis():
             jsonify({"error": "Failed to perform day analysis", "details": str(e)}),
             500,
         )
+
+
+@app.route("/statistics", methods=["GET"])
+def get_statistics():
+    try:
+        # Check if directories exist
+        if not os.path.exists(SESSION_HISTORY_DIR):
+            return (
+                jsonify({"error": f"Directory not found: {SESSION_HISTORY_DIR}"}),
+                500,
+            )
+        if not os.path.exists(COURSE_MATERIAL_DIR):
+            return (
+                jsonify({"error": f"Directory not found: {COURSE_MATERIAL_DIR}"}),
+                500,
+            )
+
+        # Count total number of sessions
+        session_files = [
+            name for name in os.listdir(SESSION_HISTORY_DIR) if name.endswith(".txt")
+        ]
+        total_sessions = len(session_files)
+
+        # Count total number of unique students (safe extraction)
+        student_ids = set()
+        for filename in session_files:
+            parts = filename.split("_")
+            if len(parts) > 3:  # Ensure there are enough parts before accessing index 3
+                student_id = parts[3].split(".")[0]  # Extract student ID
+                student_ids.add(student_id)
+
+        total_students = len(student_ids)
+
+        # Count total number of courses
+        course_dirs = [
+            name
+            for name in os.listdir(COURSE_MATERIAL_DIR)
+            if os.path.isdir(os.path.join(COURSE_MATERIAL_DIR, name))
+        ]
+        total_courses = len(course_dirs)
+
+        return jsonify(
+            {
+                "total_sessions": total_sessions,
+                "total_students": total_students,
+                "total_courses": total_courses,
+            }
+        )
+
+    except Exception as e:
+        logging.error(f"Error in get_statistics: {str(e)}", exc_info=True)
+        return jsonify({"error": "Failed to fetch statistics", "details": str(e)}), 500
 
 
 # Run the Flask app

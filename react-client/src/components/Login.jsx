@@ -12,6 +12,7 @@ const Login = () => {
     if (selectedRole === 'student') {
       // Show the student ID input form
       setShowStudentIdForm(true);
+      
     } else {
       // For other roles (e.g., admin), set the role directly
       setRole(selectedRole);
