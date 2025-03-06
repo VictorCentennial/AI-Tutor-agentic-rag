@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Home, BarChart, BookOpen } from "lucide-react";
+import { Home, BarChart, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import axios from "axios";
+import Modal from "./Modal";
 import "../../styles/Admin.css";
 
 const AdminDashboard = () => {
@@ -11,21 +12,26 @@ const AdminDashboard = () => {
   const [statistics, setStatistics] = useState({
     totalSessions: 0,
     totalStudents: 0,
-    totalCourses: 0
+    totalCourses: 0,
   });
+
+  // State for course management
+  const [courses, setCourses] = useState([]); // List of courses
+  const [expandedCourse, setExpandedCourse] = useState(null); // Track expanded course
+  const [courseMaterial, setCourseMaterial] = useState({}); // Course material for each course
+  const [isModalOpen, setIsModalOpen] = useState(false); // State to control modal visibility
 
   // Fetch statistics when the component mounts
   useEffect(() => {
     const fetchStatistics = async () => {
       try {
         const response = await axios.get("/api/statistics");
-        // Map the backend response to the expected structure
         const mappedStatistics = {
           totalSessions: response.data.total_sessions,
           totalStudents: response.data.total_students,
-          totalCourses: response.data.total_courses
+          totalCourses: response.data.total_courses,
         };
-        setStatistics(mappedStatistics); // Set the mapped statistics
+        setStatistics(mappedStatistics);
       } catch (error) {
         console.error("Error fetching statistics:", error);
         alert("Failed to fetch statistics. Please try again.");
@@ -35,7 +41,42 @@ const AdminDashboard = () => {
     fetchStatistics();
   }, []);
 
-  // Rest of your code remains unchanged...
+  // Fetch the list of courses
+  const fetchCourses = async () => {
+    try {
+      const response = await axios.get("/api/get-courses");
+      setCourses(response.data.courses);
+      setExpandedCourse(null); // Reset expanded course
+      setCourseMaterial({}); // Reset course material
+      setIsModalOpen(true); // Open the modal
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+      alert("Failed to fetch courses. Please try again.");
+    }
+  };
+
+  // Fetch the course material for a selected course
+  const fetchCourseMaterial = async (courseName) => {
+    try {
+      const response = await axios.get("/api/get-course-material", {
+        params: {
+          course: courseName,
+        },
+      });
+      setCourseMaterial((prev) => ({
+        ...prev,
+        [courseName]: response.data.material,
+      }));
+      setExpandedCourse(courseName); // Expand the selected course
+    } catch (error) {
+      console.error("Error fetching course material:", error);
+      alert("Failed to fetch course material. Please try again.");
+    }
+
+    
+  };
+
+  // Handle analysis type selection
   const handleAnalysisType = (type) => {
     setAnalysisType(type);
     setFilters({});
@@ -43,6 +84,7 @@ const AdminDashboard = () => {
     setCurrentView("analytics");
   };
 
+  // Validate inputs for analysis
   const validateInputs = () => {
     if (analysisType === "student" && !filters.student_id) {
       alert("Please enter a valid Student ID.");
@@ -59,6 +101,7 @@ const AdminDashboard = () => {
     return true;
   };
 
+  // Fetch analysis data
   const fetchAnalysis = async () => {
     if (!validateInputs()) return;
 
@@ -88,21 +131,23 @@ const AdminDashboard = () => {
 
       const response = await axios.post(endpoint, payload);
       setAnalysisResult(response.data);
-      console.log(response.data)
+      console.log(response.data);
     } catch (error) {
       console.error("Error fetching analysis:", error);
       alert("Failed to fetch analysis. Please try again.");
     }
   };
 
+  // Format analysis summary
   const formatSummary = (summary) => {
     return summary
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\n/g, '<br />')
-      .replace(/\*\s(.*?)\n/g, '<li>$1</li>');
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.*?)\*/g, "<em>$1</em>")
+      .replace(/\n/g, "<br />")
+      .replace(/\*\s(.*?)\n/g, "<li>$1</li>");
   };
 
+  // Render analysis results
   const renderAnalysisResults = () => (
     analysisResult && (
       <div className="analysis-results">
@@ -119,9 +164,7 @@ const AdminDashboard = () => {
             <div className="card" key={key}>
               <div className="card-header">
                 <h3 className="card-title">
-                  {key.split('_').map(word =>
-                    word.charAt(0).toUpperCase() + word.slice(1)
-                  ).join(' ')}
+                  {key.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")}
                 </h3>
               </div>
               <div className="card-content">
@@ -140,6 +183,7 @@ const AdminDashboard = () => {
     )
   );
 
+  // Navigation items
   const navItems = [
     { id: "main", label: "Dashboard", icon: Home },
     { id: "updateCourse", label: "Courses", icon: BookOpen },
@@ -151,11 +195,12 @@ const AdminDashboard = () => {
         { id: "general", label: "General Model Analysis" },
         { id: "student", label: "Student Analysis" },
         { id: "course", label: "Course Analysis" },
-        { id: "day", label: "Daily Analysis" }
-      ]
-    }
+        { id: "day", label: "Daily Analysis" },
+      ],
+    },
   ];
 
+  // Dropdown menu for analytics
   const DropdownMenu = ({ subItems, handleAnalysisType }) => {
     const [isOpen, setIsOpen] = useState(false);
 
@@ -184,6 +229,7 @@ const AdminDashboard = () => {
     );
   };
 
+  // Render analysis filters
   const renderAnalysisFilters = () => (
     <div className="filters">
       {analysisType === "student" && (
@@ -221,6 +267,7 @@ const AdminDashboard = () => {
     </div>
   );
 
+  // Render home page
   const renderHomePage = () => (
     <div className="home-page">
       <div className="statistics">
@@ -238,6 +285,61 @@ const AdminDashboard = () => {
         </div>
       </div>
     </div>
+  );
+
+  // Render course management section
+  const renderCourseManagement = () => (
+    <div className="course-management">
+      <div className="course-management-options">
+        <div className="course-management-options-card" onClick={() => alert("Add a Course clicked")}>
+          <h3>Add a Course</h3>
+        </div>
+        <div className="course-management-options-card" onClick={fetchCourses}>
+          <h3>See existing courses</h3>
+        </div>
+        <div className="course-management-options-card" onClick={() => alert("Update Content clicked")}>
+          <h3>Update Content of Existing Course</h3>
+        </div>
+        <div className="course-management-options-card" onClick={() => alert("Delete Course clicked")}>
+          <h3>Delete a Course</h3>
+        </div>
+      </div>
+      {/* Modal for displaying existing courses */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <div className="course-list" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+          <h2>Existing Courses</h2>
+          {courses.map((course) => (
+            <div key={course} className="course-item">
+              <div
+                className="course-header"
+                onClick={() => {
+                  if (expandedCourse === course) {
+                    setExpandedCourse(null);
+                  } else {
+                    fetchCourseMaterial(course);
+                  }
+                }}
+              >
+                <h3>{course}</h3>
+                {expandedCourse === course ? <ChevronUp /> : <ChevronDown />}
+              </div>
+              {expandedCourse === course && (
+                <div className="course-material">
+                  {courseMaterial[course]?.map((material, index) => (
+                    <div key={index} className="material-item">
+                      <p>{material}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </Modal>
+
+    </div>
+
+     
   );
 
   return (
@@ -269,16 +371,20 @@ const AdminDashboard = () => {
         <div className="content">
           <div className="header">
             <h2 className="header-title">
-              {currentView === "analytics" ? "Analytics Report" :
-                currentView === "updateCourse" ? "Course Management" :
-                  analysisType ? `${analysisType.charAt(0).toUpperCase() + analysisType.slice(1)} Analysis` :
-                    "Welcome to Admin Dashboard"}
+              {currentView === "analytics"
+                ? "Analytics Report"
+                : currentView === "updateCourse"
+                ? "Course Management"
+                : analysisType
+                ? `${analysisType.charAt(0).toUpperCase() + analysisType.slice(1)} Analysis`
+                : "Welcome to Admin Dashboard"}
             </h2>
           </div>
 
           <div className="content-body">
             {currentView === "main" && renderHomePage()}
             {currentView === "analytics" && renderAnalysisFilters()}
+            {currentView === "updateCourse" && renderCourseManagement()}
             {analysisResult && renderAnalysisResults()}
           </div>
         </div>

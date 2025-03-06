@@ -717,6 +717,47 @@ def get_statistics():
         return jsonify({"error": "Failed to fetch statistics", "details": str(e)}), 500
 
 
+# Route to get the list of courses
+@app.route("/get-courses", methods=["GET"])
+def get_courses():
+    try:
+        course_material_path = "course_material"
+        if not os.path.exists(course_material_path):
+            return jsonify({"error": "Course material directory not found"}), 404
+
+        # Get all folders (courses) in the course_material directory
+        courses = [
+            f for f in os.listdir(course_material_path)
+            if os.path.isdir(os.path.join(course_material_path, f))
+        ]
+        return jsonify({"courses": courses})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Route to get the material for a specific course
+@app.route("/get-course-material", methods=["GET"])
+def get_course_material():
+    try:
+        course_name = request.args.get("course")
+        if not course_name:
+            return jsonify({"error": "No course specified"}), 400
+
+        course_path = os.path.join("course_material", course_name)
+        if not os.path.exists(course_path):
+            return jsonify({"error": "Course not found"}), 404
+
+        # Get all files in the course directory (including subdirectories)
+        material = []
+        for root, dirs, files in os.walk(course_path):
+            for file in files:
+                relative_path = os.path.relpath(os.path.join(root, file), course_path)
+                material.append(relative_path)
+
+        return jsonify({"material": material})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # Run the Flask app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
