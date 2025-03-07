@@ -47,13 +47,15 @@ const AdminDashboard = () => {
     try {
       const response = await axios.get("/api/get-courses");
       setCourses(response.data.courses);
-      setExpandedCourse(null); // Reset expanded course
-      setIsModalOpen(true); // Open the modal
+      setExpandedCourse(null);
+      setExpandedWeeks({}); // Reset expanded weeks when fetching courses
+      setIsModalOpen(true);
     } catch (error) {
       console.error("Error fetching courses:", error);
       alert("Failed to fetch courses. Please try again.");
     }
   };
+  
   
 
   const fetchCourseMaterial = async (courseName) => {
