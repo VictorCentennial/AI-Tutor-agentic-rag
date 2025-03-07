@@ -317,3 +317,36 @@ input:focus {
   max-height: 80vh; /* Limit modal height */
   overflow-y: auto; /* Enable scrolling */
 }
+.file-list {
+  font-size: 1rem; /* Reduce title size */
+  margin-bottom: 10px;
+}
+
+.file-item {
+  border-bottom: 1px solid #ddd;
+  padding: 10px 0;
+}
+
+
+.week-item {
+  border-bottom: 1px solid #ddd;
+  padding: 10px 0;
+}
+
+.week-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem; /* Smaller font */
+  cursor: pointer;
+  padding: 8px;
+}
+.week-header h4{
+  font-size: 1rem; /* Smaller font */
+
+}
+
+.week-header:hover {
+  background: #f0f0f0;
+}
+

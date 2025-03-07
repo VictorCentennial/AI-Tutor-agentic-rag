@@ -734,7 +734,6 @@ def get_courses():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Route to get the material for a specific course
 @app.route("/get-course-material", methods=["GET"])
 def get_course_material():
     try:
@@ -746,12 +745,12 @@ def get_course_material():
         if not os.path.exists(course_path):
             return jsonify({"error": "Course not found"}), 404
 
-        # Get all files in the course directory (including subdirectories)
-        material = []
-        for root, dirs, files in os.walk(course_path):
-            for file in files:
-                relative_path = os.path.relpath(os.path.join(root, file), course_path)
-                material.append(relative_path)
+        # Get all week folders and their files
+        material = {}
+        for week_folder in os.listdir(course_path):
+            week_path = os.path.join(course_path, week_folder)
+            if os.path.isdir(week_path) and week_folder.isdigit():  # Ensure it's a week folder
+                material[week_folder] = os.listdir(week_path)
 
         return jsonify({"material": material})
     except Exception as e:

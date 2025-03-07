@@ -20,6 +20,8 @@ const AdminDashboard = () => {
   const [expandedCourse, setExpandedCourse] = useState(null); // Track expanded course
   const [courseMaterial, setCourseMaterial] = useState({}); // Course material for each course
   const [isModalOpen, setIsModalOpen] = useState(false); // State to control modal visibility
+  const [expandedWeeks, setExpandedWeeks] = useState({}); // Track expanded weeks separately
+  
 
   // Fetch statistics when the component mounts
   useEffect(() => {
@@ -41,21 +43,19 @@ const AdminDashboard = () => {
     fetchStatistics();
   }, []);
 
-  // Fetch the list of courses
   const fetchCourses = async () => {
     try {
       const response = await axios.get("/api/get-courses");
       setCourses(response.data.courses);
       setExpandedCourse(null); // Reset expanded course
-      setCourseMaterial({}); // Reset course material
       setIsModalOpen(true); // Open the modal
     } catch (error) {
       console.error("Error fetching courses:", error);
       alert("Failed to fetch courses. Please try again.");
     }
   };
+  
 
-  // Fetch the course material for a selected course
   const fetchCourseMaterial = async (courseName) => {
     try {
       const response = await axios.get("/api/get-course-material", {
@@ -63,17 +63,20 @@ const AdminDashboard = () => {
           course: courseName,
         },
       });
+      console.log("Course Material Response:", response.data); // Debugging
+  
+      // Update state with the fetched material
       setCourseMaterial((prev) => ({
         ...prev,
-        [courseName]: response.data.material,
+        [courseName]: {
+          material: response.data.material, // Ensure the response data is stored correctly
+        },
       }));
       setExpandedCourse(courseName); // Expand the selected course
     } catch (error) {
       console.error("Error fetching course material:", error);
       alert("Failed to fetch course material. Please try again.");
     }
-
-    
   };
 
   // Handle analysis type selection
@@ -287,60 +290,90 @@ const AdminDashboard = () => {
     </div>
   );
 
-  // Render course management section
-  const renderCourseManagement = () => (
-    <div className="course-management">
-      <div className="course-management-options">
-        <div className="course-management-options-card" onClick={() => alert("Add a Course clicked")}>
-          <h3>Add a Course</h3>
+  const renderCourseManagement = () => {
+    
+    return (
+      <div className="course-management">
+        <div className="course-management-options">
+          <div className="course-management-options-card" onClick={() => alert("Add a Course clicked")}>
+            <h3>Add a Course</h3>
+          </div>
+          <div className="course-management-options-card" onClick={fetchCourses}>
+            <h3>See existing courses</h3>
+          </div>
+          <div className="course-management-options-card" onClick={() => alert("Update Content clicked")}>
+            <h3>Update Content of Existing Course</h3>
+          </div>
+          <div className="course-management-options-card" onClick={() => alert("Delete Course clicked")}>
+            <h3>Delete a Course</h3>
+          </div>
         </div>
-        <div className="course-management-options-card" onClick={fetchCourses}>
-          <h3>See existing courses</h3>
-        </div>
-        <div className="course-management-options-card" onClick={() => alert("Update Content clicked")}>
-          <h3>Update Content of Existing Course</h3>
-        </div>
-        <div className="course-management-options-card" onClick={() => alert("Delete Course clicked")}>
-          <h3>Delete a Course</h3>
-        </div>
-      </div>
-      {/* Modal for displaying existing courses */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-        <div className="course-list" style={{ maxHeight: "70vh", overflowY: "auto" }}>
-          <h2>Existing Courses</h2>
-          {courses.map((course) => (
-            <div key={course} className="course-item">
-              <div
-                className="course-header"
-                onClick={() => {
-                  if (expandedCourse === course) {
-                    setExpandedCourse(null);
-                  } else {
-                    fetchCourseMaterial(course);
-                  }
-                }}
-              >
-                <h3>{course}</h3>
-                {expandedCourse === course ? <ChevronUp /> : <ChevronDown />}
-              </div>
-              {expandedCourse === course && (
-                <div className="course-material">
-                  {courseMaterial[course]?.map((material, index) => (
-                    <div key={index} className="material-item">
-                      <p>{material}</p>
-                    </div>
-                  ))}
+    
+        {/* Modal for displaying existing courses */}
+        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+          <div className="course-list" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+            <h2>Existing Courses</h2>
+            {courses.map((course) => (
+              <div key={course} className="course-item">
+                <div
+                  className="course-header"
+                  onClick={() => {
+                    if (expandedCourse === course) {
+                      setExpandedCourse(null); // Collapse if already expanded
+                    } else {
+                      fetchCourseMaterial(course); // Fetch material if not already expanded
+                    }
+                  }}
+                >
+                  <h3>{course}</h3>
+                  {expandedCourse === course ? <ChevronUp /> : <ChevronDown />}
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </Modal>
+    
+                {/* Render course material if expanded */}
+                {expandedCourse === course && courseMaterial[course]?.material && (
+                  <div className="course-material">
+                    {Object.entries(courseMaterial[course].material).map(([week, files]) => (
+                      <div key={week} className="week-item">
+                        <div
+                          className="week-header"
+                          onClick={() => {
+                            setExpandedWeeks((prev) => ({
+                              ...prev,
+                              [course]: {
+                                ...(prev[course] || {}), // Ensure previous course object exists
+                                [week]: !prev[course]?.[week],
+                              },
+                            }));
+                            
+                          }}
+                        >
+                          <h4>Week {week}</h4>
+                          {expandedWeeks[course]?.[week] ? <ChevronUp /> : <ChevronDown />}
+                        </div>
+    
+                        {/* Render files if week is expanded */}
+                        {expandedWeeks[course]?.[week] && (
+                          <div className="file-list">
+                            {(Array.isArray(files) ? files : Object.values(files)).map((file, index) => (
+                              <div key={index} className="file-item">
+                                <p>{file}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
-    </div>
-
-     
-  );
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </Modal>
+      </div>
+    );
+  };
+  
 
   return (
     <div className="dashboard-container">
