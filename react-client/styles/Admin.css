@@ -280,8 +280,8 @@ input:focus {
 }
 
 .course-list h2 {
-  font-size: 1.2rem; /* Reduce title size */
-  margin-bottom: 10px;
+  font-size: 1.5rem; /* Reduce title size */
+  margin-bottom: 20px;
 }
 
 .course-item {
