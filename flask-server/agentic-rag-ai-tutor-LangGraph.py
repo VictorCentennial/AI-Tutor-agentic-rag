@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
+from flask import send_from_directory
 
 import logging
 import re
@@ -741,20 +742,30 @@ def get_course_material():
         if not course_name:
             return jsonify({"error": "No course specified"}), 400
 
-        course_path = os.path.join("course_material", course_name)
+        course_path = os.path.join(COURSE_MATERIAL_DIR, course_name)
         if not os.path.exists(course_path):
             return jsonify({"error": "Course not found"}), 404
 
-        # Get all week folders and their files
         material = {}
+
         for week_folder in os.listdir(course_path):
             week_path = os.path.join(course_path, week_folder)
-            if os.path.isdir(week_path) and week_folder.isdigit():  # Ensure it's a week folder
-                material[week_folder] = os.listdir(week_path)
+            if os.path.isdir(week_path) and week_folder.isdigit():
+                files = os.listdir(week_path)
+                file_urls = [
+                    f"/serve-file/{course_name}/{week_folder}/{file}"  # Updated URL pattern
+                    for file in files
+                ]
+                material[week_folder] = file_urls
 
         return jsonify({"material": material})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/serve-file/<course>/<week>/<filename>')
+def serve_file(course, week, filename):
+    file_path = os.path.join(COURSE_MATERIAL_DIR, course, week)
+    return send_from_directory(file_path, filename)
 
 
 # Run the Flask app

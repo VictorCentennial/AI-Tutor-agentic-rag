@@ -10,7 +10,11 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+      '/serve-file': {
+        target: 'http://127.0.0.1:5000', // Ensure it points to Flask
+        changeOrigin: true,
       }
     }
   }

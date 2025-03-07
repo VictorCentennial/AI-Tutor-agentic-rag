@@ -353,16 +353,19 @@ const AdminDashboard = () => {
                           {expandedWeeks[course]?.[week] ? <ChevronUp /> : <ChevronDown />}
                         </div>
     
-                        {/* Render files if week is expanded */}
                         {expandedWeeks[course]?.[week] && (
-                          <div className="file-list">
-                            {(Array.isArray(files) ? files : Object.values(files)).map((file, index) => (
-                              <div key={index} className="file-item">
-                                <p>{file}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+  <div className="file-list">
+    {files.map((file, index) => (
+      <div key={index} className="file-item">
+        <a href={file} target="_blank" rel="noopener noreferrer">
+          {decodeURIComponent(file.split("/").pop())} {/* Show only filename */}
+        </a>
+      </div>
+    ))}
+  </div>
+)}
+
+
 
                       </div>
                     ))}
