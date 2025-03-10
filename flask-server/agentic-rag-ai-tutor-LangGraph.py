@@ -259,6 +259,7 @@ def start_tutoring():
     folder_name = data.get("folder_name")  # Get the selected folder from request
     topic = data.get("topic")
     current_week = data.get("current_week")
+    student_id = data.get("student_id")
     if not folder_name:
         return jsonify({"error": "No folder selected"}), 400
 
@@ -345,7 +346,7 @@ def start_tutoring():
 
     thread_id = str(uuid.uuid4())
     thread_ids.append(thread_id)
-    thread = {"configurable": {"thread_id": str(thread_id)}}
+    thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
 
     response = aiTutorAgent.graph.invoke(initial_input, thread)
     response_json = messages_to_json(response["messages"])
@@ -379,7 +380,8 @@ def continue_tutoring():
     data = request.json
     student_response = data.get("student_response", "")
     thread_id = data.get("thread_id")
-    thread = {"configurable": {"thread_id": str(thread_id)}}
+    student_id = data.get("student_id")
+    thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
 
     # aiTutorAgent.graph.update_state(
     #     thread, {"messages": [HumanMessage(content=student_response)]}
@@ -439,7 +441,9 @@ def save_session_history():
         student_id = data.get("student_id")
         topic_code = data.get("topic_code")  # Updated field name
         time_stamp = data.get("time_stamp")
-        thread = {"configurable": {"thread_id": str(thread_id)}}
+        thread = {
+            "configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}
+        }
         state = aiTutorAgent.graph.get_state(thread)
         message_history = state.values["messages"]
         subject = state.values["subject"]
@@ -727,12 +731,14 @@ def get_courses():
 
         # Get all folders (courses) in the course_material directory
         courses = [
-            f for f in os.listdir(course_material_path)
+            f
+            for f in os.listdir(course_material_path)
             if os.path.isdir(os.path.join(course_material_path, f))
         ]
         return jsonify({"courses": courses})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # Route to get the material for a specific course
 @app.route("/get-course-material", methods=["GET"])
