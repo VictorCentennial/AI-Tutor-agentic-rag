@@ -50,6 +50,7 @@ function TutorChat({ studentId }) {
       setTopicCode(selectedFolder.split('_')[0]);
       setSelectedTopic(selectedTopic);
       const response = await axios.post("api/start-tutoring", {
+        student_id: studentId,
         folder_name: selectedFolder,
         duration: selectedDuration,
         topic: selectedTopic,
@@ -67,7 +68,7 @@ function TutorChat({ studentId }) {
 
       setIsTutoringStarted(true);
       setRemainingTime(selectedDuration * 60);
-      
+
 
     } catch (error) {
       console.error("Error starting tutoring session:", error);
@@ -85,6 +86,7 @@ function TutorChat({ studentId }) {
       }
       setIsLoading(true);
       const response = await axios.post("api/continue-tutoring", {
+        student_id: studentId,
         student_response: userMessage,
         thread_id: threadId,
       });
