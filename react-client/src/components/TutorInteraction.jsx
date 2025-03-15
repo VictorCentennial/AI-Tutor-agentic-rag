@@ -8,6 +8,8 @@ import axios from "axios";
 import { Button, Row, Col, Form, Spinner } from "react-bootstrap";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const debugMode = import.meta.env.VITE_DEBUG_MODE === "true";
 
@@ -210,7 +212,26 @@ function TutorInteraction({
                   }`}
               >
                 <div className={`message-bubble ${msg.role === "ai" ? "ai-message" : "user-message"}`}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code({ node, inline, className, children, ...props }) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline && match ? (
+                          <SyntaxHighlighter
+                            style={oneLight}
+                            language={match[1]}
+                            PreTag="div"
+                            {...props}>
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      }
+                    }}>{msg.content}</ReactMarkdown>
                 </div>
               </div>
             ))}

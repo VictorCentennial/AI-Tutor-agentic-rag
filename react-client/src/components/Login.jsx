@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import TutorChat from './TutorChat'; 
-import Admin from './Admin'; 
-import '../../styles/Login.css'; 
+import { useState } from 'react';
+import TutorChat from './TutorChat';
+import Admin from './Admin';
+import '../../styles/Login.css';
 
 const Login = () => {
   const [role, setRole] = useState(null);
@@ -12,7 +12,7 @@ const Login = () => {
     if (selectedRole === 'student') {
       // Show the student ID input form
       setShowStudentIdForm(true);
-      
+
     } else {
       // For other roles (e.g., admin), set the role directly
       setRole(selectedRole);
@@ -23,6 +23,10 @@ const Login = () => {
     e.preventDefault();
     // Validate the student ID
     if (/^\d{9}$/.test(studentId)) {
+      // Save the student ID to session storage
+      sessionStorage.setItem('userId', studentId);
+      console.log('Student ID saved to session storage:', studentId);
+
       // If valid, set the role to 'student'
       setRole('student');
     } else {

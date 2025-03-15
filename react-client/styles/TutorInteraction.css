@@ -1,65 +1,126 @@
 header {
-  background-color: #282829 !important; /* Black background */
-  color: white !important; /* White text */
+  background-color: #282829 !important;
+  /* Black background */
+  color: white !important;
+  /* White text */
   padding: 20px 20px !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* Subtle shadow for depth */
 }
 
 /* Ensure the rest of the background is white */
 body {
   background-color: white !important;
   margin: 0;
-  font-family: 'Arial', sans-serif; /* Consistent font */
+  font-family: 'Arial', sans-serif;
+  /* Consistent font */
 }
 
 /* Adjust button styles in the header */
 header .custom-btn {
-  color: white !important; /* White text */
-  border-color: white !important; /* White border */
-  background-color: transparent !important; /* Transparent background */
-  transition: all 0.3s ease; /* Smooth hover transition */
+  color: white !important;
+  /* White text */
+  border-color: white !important;
+  /* White border */
+  background-color: transparent !important;
+  /* Transparent background */
+  transition: all 0.3s ease;
+  /* Smooth hover transition */
 }
 
 header .custom-btn:hover {
-  color: #282829 !important; /* Black text on hover */
-  border-color: white !important; /* White border */
-  background-color: white !important; /* White background on hover */
-  transform: scale(1.05); /* Slight scale effect on hover */
+  color: #282829 !important;
+  /* Black text on hover */
+  border-color: white !important;
+  /* White border */
+  background-color: white !important;
+  /* White background on hover */
+  transform: scale(1.05);
+  /* Slight scale effect on hover */
 }
 
 /* Ensure the interaction box and message bubbles are white */
 .interaction-box {
-  background-color: white !important; /* White background */
-  padding: 10px; /* Added padding for spacing */
-  border-radius: 8px; /* Rounded corners */
+  background-color: white !important;
+  /* White background */
+  padding: 10px;
+  /* Added padding for spacing */
+  border-radius: 8px;
+  /* Rounded corners */
 }
 
 .message-bubble {
-  background-color: white !important; /* White background for message bubbles */
-  border: 1px solid #ddd !important; /* Light border for contrast */
-  margin: 5px 10px; /* Spacing between messages */
-  padding: 3px 10px; /* Padding inside bubbles */
-  border-radius: 12px; /* Rounded corners */
+  background-color: white !important;
+  /* White background for message bubbles */
+  border: 1px solid #ddd !important;
+  /* Light border for contrast */
+  margin: 5px 10px;
+  /* Spacing between messages */
+  padding: 3px 10px;
+  /* Padding inside bubbles */
+  border-radius: 12px;
+  /* Rounded corners */
 }
 
 /* AI message styling */
 .ai-message {
-  background-color: #f0f0f0 !important; /* Light gray for AI messages */
-  color: #333 !important; /* Dark gray text for readability */
-  border-radius: 12px 12px 12px 4px; /* Rounded corners for AI messages */
+  background-color: #f0f0f0 !important;
+  /* Light gray for AI messages */
+  color: #333 !important;
+  /* Dark gray text for readability */
+  border-radius: 12px 12px 12px 4px;
+  /* Rounded corners for AI messages */
 }
 
 /* User message styling */
 .user-message {
-  background-color: #2575fc !important; /* Blue for user messages */
-  color: #fff !important; /* White text */
-  border-radius: 12px 12px 4px 12px; /* Rounded corners for user messages */
+  background-color: #2575fc !important;
+  /* Blue for user messages */
+  color: #fff !important;
+  /* White text */
+  border-radius: 12px 12px 4px 12px;
+  /* Rounded corners for user messages */
 }
 
 /* Ensure the input container is white */
 .input-container {
   background-color: white !important;
-  padding: 16px; /* Added padding for spacing */
-  border-top: 1px solid #ddd; /* Light border for separation */
-  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+  padding: 16px;
+  /* Added padding for spacing */
+  border-top: 1px solid #ddd;
+  /* Light border for separation */
+  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+  /* Subtle shadow for depth */
+}
+
+/* Add these styles to your TutorInteraction.css file */
+.conversation-messages {
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: #f0f2f5;
+  border: 1px solid #d0d0d0;
+  border-radius: 0.25rem;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+/* Make sure ReactMarkdown content is properly styled */
+.message-bubble p {
+  margin-bottom: 0.5rem;
+  color: inherit !important;
+  /* Force inherit color from parent */
+}
+
+.message-bubble pre,
+.message-bubble code {
+  background-color: rgba(0, 0, 0, 0.1);
+  padding: 0.2rem;
+  border-radius: 3px;
+  color: inherit !important;
+}
+
+/* Override any conflicting styles from modal.css */
+.user-message *,
+.ai-message * {
+  color: inherit !important;
 }

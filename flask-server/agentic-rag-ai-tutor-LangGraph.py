@@ -259,6 +259,7 @@ def start_tutoring():
     folder_name = data.get("folder_name")  # Get the selected folder from request
     topic = data.get("topic")
     current_week = data.get("current_week")
+    student_id = data.get("student_id")
     if not folder_name:
         return jsonify({"error": "No folder selected"}), 400
 
@@ -345,7 +346,7 @@ def start_tutoring():
 
     thread_id = str(uuid.uuid4())
     thread_ids.append(thread_id)
-    thread = {"configurable": {"thread_id": str(thread_id)}}
+    thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
 
     response = aiTutorAgent.graph.invoke(initial_input, thread)
     response_json = messages_to_json(response["messages"])
@@ -361,7 +362,10 @@ def start_tutoring():
     graph_folder = "graph"
     if not os.path.exists(graph_folder):
         os.makedirs(graph_folder)
-    graph.draw_mermaid_png(output_file_path=os.path.join(graph_folder, "graph.png"))
+    try:
+        graph.draw_mermaid_png(output_file_path=os.path.join(graph_folder, "graph.png"))
+    except Exception as e:
+        logging.error(f"Error in draw_mermaid_png: {str(e)}")
 
     return jsonify(
         {
@@ -379,7 +383,8 @@ def continue_tutoring():
     data = request.json
     student_response = data.get("student_response", "")
     thread_id = data.get("thread_id")
-    thread = {"configurable": {"thread_id": str(thread_id)}}
+    student_id = data.get("student_id")
+    thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
 
     # aiTutorAgent.graph.update_state(
     #     thread, {"messages": [HumanMessage(content=student_response)]}
@@ -439,7 +444,9 @@ def save_session_history():
         student_id = data.get("student_id")
         topic_code = data.get("topic_code")  # Updated field name
         time_stamp = data.get("time_stamp")
-        thread = {"configurable": {"thread_id": str(thread_id)}}
+        thread = {
+            "configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}
+        }
         state = aiTutorAgent.graph.get_state(thread)
         message_history = state.values["messages"]
         subject = state.values["subject"]
@@ -727,12 +734,14 @@ def get_courses():
 
         # Get all folders (courses) in the course_material directory
         courses = [
-            f for f in os.listdir(course_material_path)
+            f
+            for f in os.listdir(course_material_path)
             if os.path.isdir(os.path.join(course_material_path, f))
         ]
         return jsonify({"courses": courses})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # Route to get the material for a specific course
 @app.route("/get-course-material", methods=["GET"])
@@ -756,6 +765,89 @@ def get_course_material():
         return jsonify({"material": material})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/get-student-chat-history", methods=["POST"])
+def get_student_chat_history():
+    try:
+        data = request.json
+        student_id = data.get("student_id")
+        if not student_id:
+            return jsonify({"error": "Student ID is required"}), 400
+
+        # Access the MongoDB client from the checkpointer
+        mongodb_client = aiTutorAgent.memory.client
+
+        # These values need to match what was used in __init__.py
+        MONGODB_DB = os.getenv("MONGODB_DB", "ai_tutor_db")
+        MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "agent_checkpoints")
+
+        db = mongodb_client[MONGODB_DB]
+        checkpoints_collection = db[MONGODB_COLLECTION]
+
+        # Get distinct thread_ids from MongoDB
+        thread_ids = checkpoints_collection.distinct("thread_id")
+
+        conversations = []
+
+        # For each thread_id, check if it belongs to this student
+        for thread_id in thread_ids:
+            try:
+                # Create thread config
+                thread_config = {
+                    "configurable": {"thread_id": thread_id, "user_id": str(student_id)}
+                }
+
+                # Try to get state - this will succeed if the thread belongs to this user
+                # Otherwise, it will raise an exception
+                state = aiTutorAgent.graph.get_state(thread_config)
+
+                stored_user_id = state.metadata.get("user_id")
+                # print(f"stored_user_id: {stored_user_id}")
+                # print(f"student_id: {student_id}")
+                if stored_user_id != student_id:
+                    # Skip this thread – it doesn't belong to the given student
+                    continue
+
+                # Extract conversation information
+                messages = state.values.get("messages", [])
+
+                conversation = {
+                    "thread_id": thread_id,
+                    "subject": state.values.get("subject", "Unknown"),
+                    "created_at": state.created_at,
+                    "messages": messages_to_json(messages),
+                    "message_count": len(messages),
+                }
+
+                # Add additional metadata if available
+                if state.metadata:
+                    conversation["step"] = state.metadata.get("step", 0)
+
+                conversations.append(conversation)
+
+            except Exception as e:
+                # This thread doesn't belong to this user
+                logging.debug(f"Thread {thread_id} retrival error: {str(e)}")
+                continue
+
+        # Sort conversations by creation date (newest first)
+        conversations.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+        return jsonify(
+            {
+                "student_id": student_id,
+                "conversation_count": len(conversations),
+                "conversations": conversations,
+            }
+        )
+
+    except Exception as e:
+        logging.error(f"Error in get_user_chat_history: {str(e)}", exc_info=True)
+        return (
+            jsonify({"error": "Failed to retrieve chat history", "details": str(e)}),
+            500,
+        )
 
 
 # Run the Flask app

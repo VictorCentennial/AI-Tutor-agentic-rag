@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Card, Form, Button, Spinner, Row, Col } from "react-bootstrap";
+import { Card, Form, Button, Spinner, Row, Col, ListGroup } from "react-bootstrap";
 import PropTypes from 'prop-types';
 import axios from "axios";
-import Preloader from "./Preloader"; 
+import Preloader from "./Preloader";
+import Modal from "./Modal";
+import "../../styles/TutorInteraction.css";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
 
 function TutorStart({ onStartTutoring, isLoading }) {
   const [duration, setDuration] = useState(30);
@@ -15,6 +22,13 @@ function TutorStart({ onStartTutoring, isLoading }) {
   // States for the topic
   const [selectedTopic, setSelectedTopic] = useState("ALL");
   const [topics, setTopics] = useState([]);
+
+  // States for conversation history
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState([]);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
 
   const semesterStartDate = import.meta.env.VITE_SEMESTER_START_DATE;
   const totalWeeks = import.meta.env.VITE_TOTAL_WEEKS || 14;
@@ -87,6 +101,54 @@ function TutorStart({ onStartTutoring, isLoading }) {
     return `Week ${topic_split[0]} - ${topic_split[1]}`
   }
 
+  // Function to fetch conversation history
+  const fetchConversationHistory = async () => {
+    setIsHistoryLoading(true);
+    try {
+      // Get the student ID from localStorage or another source
+      const studentId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
+
+      if (!studentId) {
+        alert('User ID not found. Please log in again.');
+        setIsHistoryLoading(false);
+        return;
+      }
+
+      const response = await axios.post('/api/get-student-chat-history', {
+        student_id: studentId
+      });
+
+      if (response.status === 200 && response.data.conversations) {
+        if (response.data.conversations.length === 0) {
+          alert('No conversation history found for your account.');
+        } else {
+          setConversationHistory(response.data.conversations);
+          setIsHistoryModalOpen(true);
+        }
+      } else {
+        alert('Failed to fetch conversation history');
+      }
+    } catch (error) {
+      console.error('Error fetching conversation history:', error);
+      alert('Error fetching conversation history: ' + error.message);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
+  // Function to handle conversation selection
+  const handleConversationSelect = (conversation) => {
+    setSelectedConversation(conversation);
+    setIsHistoryModalOpen(false);
+    setIsConversationModalOpen(true);
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  };
+
   return (
     <div className="container mt-2">
       {/* Preloader Page */}
@@ -155,7 +217,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
                 </Col>
               </Row>
 
-              <div className="text-center">
+              <div className="text-center mb-3">
                 <Button
                   variant="dark"
                   onClick={handleUpdateVectorStore}
@@ -192,7 +254,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
                 />
               </Form.Group>
 
-              <div className="text-center">
+              <div className="text-center mb-3">
                 <Button
                   variant="dark"
                   onClick={handleStart}
@@ -216,10 +278,134 @@ function TutorStart({ onStartTutoring, isLoading }) {
                   )}
                 </Button>
               </div>
+
+              <div className="text-center">
+                <Button
+                  variant="outline-dark"
+                  onClick={fetchConversationHistory}
+                  className="w-50"
+                  disabled={isHistoryLoading}
+                >
+                  {isHistoryLoading ? (
+                    <>
+                      <Spinner
+                        as="span"
+                        animation="border"
+                        size="sm"
+                        role="status"
+                        aria-hidden="true"
+                        className="me-2"
+                      />
+                      Loading History...
+                    </>
+                  ) : (
+                    'View Conversation History'
+                  )}
+                </Button>
+              </div>
             </Form>
           </Card.Body>
         </Card>
       )}
+
+      {/* History Modal */}
+      <Modal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)}>
+        <div className="modal-header">
+          <h3>Conversation History</h3>
+        </div>
+        {conversationHistory.length === 0 ? (
+          <p style={{ color: '#333333', backgroundColor: '#ffffff', padding: '15px', borderRadius: '5px' }}>
+            No conversation history found.
+          </p>
+        ) : (
+          <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            <ListGroup>
+              {conversationHistory.map((conversation, index) => (
+                <ListGroup.Item
+                  key={index}
+                  action
+                  onClick={() => handleConversationSelect(conversation)}
+                  className="d-flex justify-content-between align-items-center"
+                  style={{
+                    margin: '8px 0',
+                    borderRadius: '5px',
+                    backgroundColor: '#f0f2f5',
+                    border: '1px solid #d0d0d0',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div>
+                    <strong style={{ color: '#1976d2' }}>{conversation.subject || 'Unknown Subject'}</strong>
+                    <div className="text-muted small">
+                      {formatDate(conversation.created_at)}
+                    </div>
+                    <div className="text-muted small">
+                      Messages: {conversation.message_count}
+                    </div>
+                  </div>
+                  <Button variant="outline-primary" size="sm">View</Button>
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
+          </div>
+        )}
+      </Modal>
+
+      {/* Conversation Detail Modal */}
+      <Modal isOpen={isConversationModalOpen} onClose={() => setIsConversationModalOpen(false)}>
+        {selectedConversation ? (
+          <div>
+            <div className="modal-header">
+              <h3>Conversation Details</h3>
+            </div>
+            <div className="mb-3" >
+              <strong>Subject:</strong> {selectedConversation.subject || 'Unknown Subject'}<br />
+              <strong>Date:</strong> {formatDate(selectedConversation.created_at)}<br />
+              <strong>Messages:</strong> {selectedConversation.message_count}<br />
+            </div>
+            <div
+              className="conversation-messages"
+            >
+              {selectedConversation.messages && selectedConversation.messages.map((message, index) => (
+                <div
+                  key={index}
+
+                  className={`d-flex flex-column ${message.role === 'student' ? 'align-items-end' : 'align-items-start'}`}
+                >
+                  <div className={`message-bubble ${message.role === 'student' ? 'user-message' : 'ai-message'}`}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}
+                      components={{
+                        code({ node, inline, className, children, ...props }) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          return !inline && match ? (
+                            <SyntaxHighlighter
+                              style={oneLight}
+                              language={match[1]}
+                              PreTag="div"
+                              {...props}
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          );
+                        }
+                      }}>
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p style={{ color: '#333333', backgroundColor: '#ffffff', padding: '15px', borderRadius: '5px' }}>
+            No conversation selected.
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

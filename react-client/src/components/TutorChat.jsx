@@ -4,9 +4,9 @@ import TutorStart from "./TutorStart";
 import TutorInteraction from "./TutorInteraction";
 import axios from "axios";
 import "../App.css";
+import PropTypes from 'prop-types';
 
-
-function TutorChat({ studentId }) {
+function TutorChat({ studentId: propStudentId }) {
   const [isLoading, setIsLoading] = useState(false);
   const [aiMessages, setAiMessages] = useState([]);
   const [llmPrompt, setLlmPrompt] = useState("");
@@ -23,6 +23,9 @@ function TutorChat({ studentId }) {
   const [sessionSummary, setSessionSummary] = useState(null); // New state for summary
   const [savedTimestamp, setSavedTimestamp] = useState("");
   const [topicCode, setTopicCode] = useState("");
+
+  // Get studentId from session storage if not provided as prop
+  const studentId = propStudentId || sessionStorage.getItem('userId');
 
   useEffect(() => {
     if (isTutoringStarted && remainingTime >= 0) {
@@ -50,6 +53,7 @@ function TutorChat({ studentId }) {
       setTopicCode(selectedFolder.split('_')[0]);
       setSelectedTopic(selectedTopic);
       const response = await axios.post("api/start-tutoring", {
+        student_id: studentId,
         folder_name: selectedFolder,
         duration: selectedDuration,
         topic: selectedTopic,
@@ -67,7 +71,7 @@ function TutorChat({ studentId }) {
 
       setIsTutoringStarted(true);
       setRemainingTime(selectedDuration * 60);
-      
+
 
     } catch (error) {
       console.error("Error starting tutoring session:", error);
@@ -85,6 +89,7 @@ function TutorChat({ studentId }) {
       }
       setIsLoading(true);
       const response = await axios.post("api/continue-tutoring", {
+        student_id: studentId,
         student_response: userMessage,
         thread_id: threadId,
       });
@@ -342,6 +347,16 @@ function TutorChat({ studentId }) {
     </Container>
   );
 }
+
+// Add PropTypes validation
+TutorChat.propTypes = {
+  studentId: PropTypes.string
+};
+
+// Default props
+TutorChat.defaultProps = {
+  studentId: null
+};
 
 export default TutorChat;
 
