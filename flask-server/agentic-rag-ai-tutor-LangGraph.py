@@ -362,7 +362,10 @@ def start_tutoring():
     graph_folder = "graph"
     if not os.path.exists(graph_folder):
         os.makedirs(graph_folder)
-    graph.draw_mermaid_png(output_file_path=os.path.join(graph_folder, "graph.png"))
+    try:
+        graph.draw_mermaid_png(output_file_path=os.path.join(graph_folder, "graph.png"))
+    except Exception as e:
+        logging.error(f"Error in draw_mermaid_png: {str(e)}")
 
     return jsonify(
         {
@@ -825,9 +828,7 @@ def get_student_chat_history():
 
             except Exception as e:
                 # This thread doesn't belong to this user
-                logging.debug(
-                    f"Thread {thread_id} doesn't belong to user {student_id} or error: {str(e)}"
-                )
+                logging.debug(f"Thread {thread_id} retrival error: {str(e)}")
                 continue
 
         # Sort conversations by creation date (newest first)
