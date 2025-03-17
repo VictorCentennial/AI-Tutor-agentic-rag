@@ -14,8 +14,11 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import AIMessage, HumanMessage
 from langgraph.types import Command
 from aiTutorAgent import aiTutorAgent
-
 from rag import rag
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -852,4 +855,8 @@ def get_student_chat_history():
 
 # Run the Flask app
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(
+        host=os.getenv("FLASK_HOST", "0.0.0.0"),
+        port=int(os.getenv("FLASK_PORT", 5001)),
+        debug=os.getenv("FLASK_DEBUG", "True").lower() == "true",
+    )
