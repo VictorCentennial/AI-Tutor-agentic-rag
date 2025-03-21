@@ -350,3 +350,28 @@ input:focus {
   background: #f0f0f0;
 }
 
+
+.icon-container {
+  display: flex;
+  gap: 8px; /* Adjust the gap between icons */
+  margin-left: auto; /* Push the icons to the right */
+}
+
+.icon-button {
+  cursor: pointer;
+  color: #333;
+  transition: color 0.3s ease;
+}
+
+.icon-button:hover {
+  color: #007bff;
+}
+
+.add-course-modal button{
+  color: #333;
+  border: #333;
+}
+.add-course-modal button:hover{
+  background-color: #333;
+  color: white;
+}

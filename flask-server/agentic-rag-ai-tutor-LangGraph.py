@@ -8,6 +8,7 @@ import os
 import json
 from datetime import datetime
 import uuid
+import shutil
 
 # from langchain.document_loaders import TextLoader
 from langchain_community.document_loaders import TextLoader
@@ -768,6 +769,131 @@ def serve_file(course, week, filename):
     return send_from_directory(file_path, filename)
 
 
+@app.route("/add-course", methods=["POST"])
+def add_course():
+    try:
+        data = request.json
+        course_code = data.get("course_code")
+        course_name = data.get("course_name")
+
+        # Validate input
+        if not course_code or not course_name:
+            return jsonify({"error": "Course code and name are required"}), 400
+
+        # Replace spaces in course name with underscores
+        formatted_course_name = course_name.replace(" ", "_")
+        folder_name = f"{course_code}_{formatted_course_name}"
+        course_path = os.path.join("course_material", folder_name)
+
+        # Create the main course folder
+        os.makedirs(course_path, exist_ok=True)
+
+        # Create 14 subfolders for weekly content
+        for week in range(1, 15):
+            week_folder = os.path.join(course_path, str(week))
+            os.makedirs(week_folder, exist_ok=True)
+
+        return jsonify({"message": "Course folder and subfolders created successfully"}), 200
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error in /api/add-course: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@app.route("/rename-item", methods=["POST"])
+def rename_item():
+    try:
+        data = request.json
+        print("Received rename request:", data)  # Log the request data
+        item_type = data.get("type")  # "course", "week", or "file"
+        old_path = data.get("old_path")
+        new_name = data.get("new_name")
+
+        # Validate input
+        if not item_type or not old_path or not new_name:
+            return jsonify({"error": "Missing required parameters"}), 400
+
+        # Construct the full old and new paths
+        if item_type == "course":
+            base_path = os.path.join("course_material", old_path)
+            new_path = os.path.join("course_material", new_name)
+        elif item_type == "week":
+            # Split the old_path into course_name and week_number
+            course_name, week_number = old_path.split("/")
+            base_path = os.path.join("course_material", course_name, week_number)
+            new_path = os.path.join("course_material", course_name, new_name)
+        elif item_type == "file":
+            # Split the old_path into course_name, week_number, and filename
+            parts = old_path.split("/")
+            if len(parts) != 3:
+                return jsonify({"error": "Invalid file path format"}), 400
+            course_name, week_number, filename = parts
+            base_path = os.path.join("course_material", course_name, week_number, filename)
+            new_path = os.path.join("course_material", course_name, week_number, new_name)
+        else:
+            return jsonify({"error": "Invalid item type"}), 400
+
+        # Check if the old path exists
+        if not os.path.exists(base_path):
+            return jsonify({"error": f"{item_type.capitalize()} not found"}), 404
+
+        # Rename the item
+        os.rename(base_path, new_path)
+        return jsonify({"message": f"{item_type.capitalize()} renamed successfully"}), 200
+    except Exception as e:
+        print(f"Error renaming {item_type}: {str(e)}")
+        return jsonify({"error": f"Failed to rename {item_type}"}), 500
+    
+@app.route("/delete-item", methods=["POST"])
+def delete_item():
+    try:
+        data = request.json
+        item_type = data.get("type")  # "course", "week", or "file"
+        path = data.get("path")
+
+        if not item_type or not path:
+            return jsonify({"error": "Missing required parameters"}), 400
+
+        # Construct the full path
+        full_path = os.path.join("course_material", path)
+
+        # Check if the path exists
+        if not os.path.exists(full_path):
+            return jsonify({"error": f"{item_type.capitalize()} not found"}), 404
+
+        # Delete the item
+        if item_type == "course":
+            shutil.rmtree(full_path)  # Delete the entire course folder
+        elif item_type == "week":
+            shutil.rmtree(full_path)  # Delete the entire week folder
+        elif item_type == "file":
+            os.remove(full_path)  # Delete a single file
+        else:
+            return jsonify({"error": "Invalid item type"}), 400
+
+        return jsonify({"message": f"{item_type.capitalize()} deleted successfully"}), 200
+    except Exception as e:
+        print(f"Error deleting {item_type}: {str(e)}")
+        return jsonify({"error": f"Failed to delete {item_type}"}), 500
+    
+@app.route("/upload-file", methods=["POST"])
+def upload_file():
+    try:
+        course_name = request.form.get("course_name")
+        week_number = request.form.get("week_number")
+        file = request.files.get("file")
+
+        if not course_name or not week_number or not file:
+            return jsonify({"error": "Missing required parameters"}), 400
+
+        # Save the file to the appropriate week folder
+        upload_path = os.path.join("course_material", course_name, week_number, file.filename)
+        file.save(upload_path)
+
+        return jsonify({"message": "File uploaded successfully"}), 200
+    except Exception as e:
+        print(f"Error uploading file: {str(e)}")
+        return jsonify({"error": "Failed to upload file"}), 500
+    
 # Run the Flask app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
