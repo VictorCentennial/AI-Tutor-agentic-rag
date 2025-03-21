@@ -1,2 +1,10 @@
 .vscode
 .venv
+
+# Azure deployment files
+debug-container-group.yaml
+debug-flask.yaml
+debug-react.yaml
+container-group.yaml
+
+
