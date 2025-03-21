@@ -62,3 +62,5 @@ properties:
       port: 5001
   
   osType: Linux
+  tags: {aitutorapp: container-group}
+  type: Microsoft.ContainerInstance/containerGroups
