@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Home, BarChart, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
+import { Home, BarChart, BookOpen, ChevronDown, ChevronUp, Trash, Edit } from "lucide-react";
 import axios from "axios";
 import Modal from "./Modal";
 import "../../styles/Admin.css";
@@ -20,6 +20,32 @@ const AdminDashboard = () => {
   const [expandedCourse, setExpandedCourse] = useState(null); // Track expanded course
   const [courseMaterial, setCourseMaterial] = useState({}); // Course material for each course
   const [isModalOpen, setIsModalOpen] = useState(false); // State to control modal visibility
+  const [expandedWeeks, setExpandedWeeks] = useState({}); // Track expanded weeks separately
+  const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
+  const [courseCode, setCourseCode] = useState("");
+  const [courseName, setCourseName] = useState("");
+
+  const handleAddCourse = async () => {
+    if (!courseCode || !courseName) {
+      alert("Please enter both course code and course name.");
+      return;
+    }
+  
+    try {
+      const response = await axios.post("/api/add-course", {
+        course_code: courseCode,
+        course_name: courseName,
+      });
+      alert(response.data.message);
+      setIsAddCourseModalOpen(false);
+      setCourseCode("");
+      setCourseName("");
+    } catch (error) {
+      console.error("Error adding course:", error);
+      alert("Failed to add course. Please try again.");
+    }
+  };
+  
 
   // Fetch statistics when the component mounts
   useEffect(() => {
@@ -41,21 +67,21 @@ const AdminDashboard = () => {
     fetchStatistics();
   }, []);
 
-  // Fetch the list of courses
   const fetchCourses = async () => {
     try {
       const response = await axios.get("/api/get-courses");
       setCourses(response.data.courses);
-      setExpandedCourse(null); // Reset expanded course
-      setCourseMaterial({}); // Reset course material
-      setIsModalOpen(true); // Open the modal
+      setExpandedCourse(null);
+      setExpandedWeeks({}); // Reset expanded weeks when fetching courses
+      setIsModalOpen(true);
     } catch (error) {
       console.error("Error fetching courses:", error);
       alert("Failed to fetch courses. Please try again.");
     }
   };
+  
+  
 
-  // Fetch the course material for a selected course
   const fetchCourseMaterial = async (courseName) => {
     try {
       const response = await axios.get("/api/get-course-material", {
@@ -63,17 +89,20 @@ const AdminDashboard = () => {
           course: courseName,
         },
       });
+      console.log("Course Material Response:", response.data); // Debugging
+  
+      // Update state with the fetched material
       setCourseMaterial((prev) => ({
         ...prev,
-        [courseName]: response.data.material,
+        [courseName]: {
+          material: response.data.material, // Ensure the response data is stored correctly
+        },
       }));
       setExpandedCourse(courseName); // Expand the selected course
     } catch (error) {
       console.error("Error fetching course material:", error);
       alert("Failed to fetch course material. Please try again.");
     }
-
-    
   };
 
   // Handle analysis type selection
@@ -287,60 +316,213 @@ const AdminDashboard = () => {
     </div>
   );
 
-  // Render course management section
-  const renderCourseManagement = () => (
-    <div className="course-management">
-      <div className="course-management-options">
-        <div className="course-management-options-card" onClick={() => alert("Add a Course clicked")}>
-          <h3>Add a Course</h3>
+  const renderCourseManagement = () => {
+    const handleRename = async (type, oldPath, newName) => {
+      if (!newName) {
+        alert("Please enter a new name.");
+        return;
+      }
+  
+      try {
+        const response = await axios.post("/api/rename-item", {
+          type,
+          old_path: oldPath,
+          new_name: newName,
+        });
+        alert(response.data.message);
+        fetchCourses(); // Refresh the course list
+      } catch (error) {
+        console.error("Error renaming item:", error);
+        alert("Failed to rename item. Please try again.");
+      }
+    };
+  
+    const handleDelete = async (type, path) => {
+      try {
+        const response = await axios.post("/api/delete-item", {
+          type,
+          path,
+        });
+        alert(response.data.message);
+        fetchCourses(); // Refresh the course list
+      } catch (error) {
+        console.error("Error deleting item:", error);
+        alert("Failed to delete item. Please try again.");
+      }
+    };
+  
+    const handleUploadFile = async (courseName, weekNumber, file) => {
+      try {
+        const formData = new FormData();
+        formData.append("course_name", courseName);
+        formData.append("week_number", weekNumber);
+        formData.append("file", file);
+  
+        const response = await axios.post("api/upload-file", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        alert(response.data.message);
+        fetchCourses(); // Refresh the course list
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        alert("Failed to upload file. Please try again.");
+      }
+    };
+  
+    return (
+      <div className="course-management">
+        <div className="course-management-options">
+          <div className="course-management-options-card" onClick={() => setIsAddCourseModalOpen(true)}>
+            <h3>Add a Course</h3>
+          </div>
+          <div className="course-management-options-card" onClick={fetchCourses}>
+            <h3>See existing courses</h3>
+          </div>
+          <div className="course-management-options-card" onClick={fetchCourses}>
+            <h3>Update Content of Existing Course</h3>
+          </div>
         </div>
-        <div className="course-management-options-card" onClick={fetchCourses}>
-          <h3>See existing courses</h3>
-        </div>
-        <div className="course-management-options-card" onClick={() => alert("Update Content clicked")}>
-          <h3>Update Content of Existing Course</h3>
-        </div>
-        <div className="course-management-options-card" onClick={() => alert("Delete Course clicked")}>
-          <h3>Delete a Course</h3>
-        </div>
-      </div>
-      {/* Modal for displaying existing courses */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-        <div className="course-list" style={{ maxHeight: "70vh", overflowY: "auto" }}>
-          <h2>Existing Courses</h2>
-          {courses.map((course) => (
-            <div key={course} className="course-item">
-              <div
-                className="course-header"
-                onClick={() => {
-                  if (expandedCourse === course) {
-                    setExpandedCourse(null);
-                  } else {
-                    fetchCourseMaterial(course);
-                  }
-                }}
-              >
-                <h3>{course}</h3>
-                {expandedCourse === course ? <ChevronUp /> : <ChevronDown />}
-              </div>
-              {expandedCourse === course && (
-                <div className="course-material">
-                  {courseMaterial[course]?.map((material, index) => (
-                    <div key={index} className="material-item">
-                      <p>{material}</p>
-                    </div>
-                  ))}
+  
+        {/* Modal for adding a course */}
+        <Modal isOpen={isAddCourseModalOpen} onClose={() => setIsAddCourseModalOpen(false)}>
+          <div className="add-course-modal">
+            <h2>Add a New Course</h2>
+            <input
+              type="text"
+              placeholder="Enter Course Code"
+              value={courseCode}
+              onChange={(e) => setCourseCode(e.target.value)}
+            />
+            <input
+              type="text"
+              placeholder="Enter Course Name"
+              value={courseName}
+              onChange={(e) => setCourseName(e.target.value)}
+            />
+            <button onClick={handleAddCourse}>Create Course</button>
+          </div>
+        </Modal>
+  
+        {/* Modal for displaying existing courses */}
+        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+          <div className="course-list" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+            <h2>Existing Courses</h2>
+            {courses.map((course) => (
+              <div key={course} className="course-item">
+                <div
+                  className="course-header"
+                  onClick={() => {
+                    if (expandedCourse === course) {
+                      setExpandedCourse(null); // Collapse if already expanded
+                    } else {
+                      fetchCourseMaterial(course); // Fetch material if not already expanded
+                    }
+                  }}
+                >
+                  <h3>{course}</h3>
+                  {expandedCourse === course ? <ChevronUp /> : <ChevronDown />}
+                  <div className="icon-container">
+                    <Edit
+                      className="icon-button"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent the course from collapsing/expanding
+                        handleRename("course", course, prompt("Enter new course name"));
+                      }}
+                    />
+                    <Trash
+                      className="icon-button"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent the course from collapsing/expanding
+                        handleDelete("course", course);
+                      }}
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </Modal>
-
-    </div>
-
-     
-  );
+  
+                {/* Render course material if expanded */}
+                {expandedCourse === course && courseMaterial[course]?.material && (
+                  <div className="course-material">
+                    {Object.entries(courseMaterial[course].material).map(([week, files]) => (
+                      <div key={week} className="week-item">
+                        <div
+                          className="week-header"
+                          onClick={() => {
+                            setExpandedWeeks((prev) => ({
+                              ...prev,
+                              [course]: {
+                                ...(prev[course] || {}),
+                                [week]: !prev[course]?.[week],
+                              },
+                            }));
+                          }}
+                        >
+                          <h4>Week {week}</h4>
+                          {expandedWeeks[course]?.[week] ? <ChevronUp /> : <ChevronDown />}
+                          <div className="icon-container">
+                            <Edit
+                              className="icon-button"
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent the week from collapsing/expanding
+                                handleRename("week", `${course}/${week}`, prompt("Enter new week number"));
+                              }}
+                            />
+                            <Trash
+                              className="icon-button"
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent the week from collapsing/expanding
+                                handleDelete("week", `${course}/${week}`);
+                              }}
+                            />
+                          </div>
+                        </div>
+  
+                        {expandedWeeks[course]?.[week] && (
+                          <div className="file-list">
+                            {files.map((file, index) => {
+                              const fileName = decodeURIComponent(file.split("/").pop()); // Extract filename from URL
+                              return (
+                                <div key={index} className="file-item">
+                                  <a href={file} target="_blank" rel="noopener noreferrer">
+                                    {fileName}
+                                  </a>
+                                  <div className="icon-container">
+                                    <Edit
+                                      className="icon-button"
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // Prevent the file list from collapsing/expanding
+                                        handleRename("file", `${course}/${week}/${fileName}`, prompt("Enter new file name"));
+                                      }}
+                                    />
+                                    <Trash
+                                      className="icon-button"
+                                      onClick={(e) => {
+                                        e.stopPropagation(); // Prevent the file list from collapsing/expanding
+                                        handleDelete("file", `${course}/${week}/${fileName}`);
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            <input
+                              type="file"
+                              onChange={(e) => handleUploadFile(course, week, e.target.files[0])}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </Modal>
+      </div>
+    );
+  };
 
   return (
     <div className="dashboard-container">

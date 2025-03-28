@@ -280,8 +280,8 @@ input:focus {
 }
 
 .course-list h2 {
-  font-size: 1.2rem; /* Reduce title size */
-  margin-bottom: 10px;
+  font-size: 1.5rem; /* Reduce title size */
+  margin-bottom: 20px;
 }
 
 .course-item {
@@ -316,4 +316,62 @@ input:focus {
 .modal-content {
   max-height: 80vh; /* Limit modal height */
   overflow-y: auto; /* Enable scrolling */
+}
+.file-list {
+  font-size: 1rem; /* Reduce title size */
+  margin-bottom: 10px;
+  padding-left: 18px;
+}
+
+.file-item {
+  padding: 10px 0;
+}
+
+
+.week-item {
+  border-bottom: 1px solid #ddd;
+  padding: 10px 0;
+}
+
+.week-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem; /* Smaller font */
+  cursor: pointer;
+  padding: 8px;
+}
+.week-header h4{
+  font-size: 1rem; /* Smaller font */
+
+}
+
+.week-header:hover {
+  background: #f0f0f0;
+}
+
+
+.icon-container {
+  display: flex;
+  gap: 8px; /* Adjust the gap between icons */
+  margin-left: auto; /* Push the icons to the right */
+}
+
+.icon-button {
+  cursor: pointer;
+  color: #333;
+  transition: color 0.3s ease;
+}
+
+.icon-button:hover {
+  color: #007bff;
+}
+
+.add-course-modal button{
+  color: #333;
+  border: #333;
+}
+.add-course-modal button:hover{
+  background-color: #333;
+  color: white;
 }

@@ -9,13 +9,16 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-
     server: {
       proxy: {
         '/api': {
           target: env.VITE_API_URL || 'http://127.0.0.1:5001',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, '')
+          rewrite: (path) => path.replace(/^\/api/, ''),
+        },
+        '/serve-file': {
+          target: env.VITE_API_URL || 'http://127.0.0.1:5001', // Ensure it points to Flask
+          changeOrigin: true,
         }
       }
     }
