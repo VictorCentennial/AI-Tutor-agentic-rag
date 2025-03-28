@@ -748,14 +748,11 @@ def get_courses():
         courses = [
             f
             for f in os.listdir(course_material_path)
-            f
-            for f in os.listdir(course_material_path)
             if os.path.isdir(os.path.join(course_material_path, f))
         ]
         return jsonify({"courses": courses})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 
 # Route to get the material for a specific course
