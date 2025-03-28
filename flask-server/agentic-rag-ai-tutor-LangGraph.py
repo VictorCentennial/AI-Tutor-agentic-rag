@@ -22,10 +22,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -456,9 +452,6 @@ def save_session_history():
         thread = {
             "configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}
         }
-        thread = {
-            "configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}
-        }
         state = aiTutorAgent.graph.get_state(thread)
         message_history = state.values["messages"]
         subject = state.values["subject"]
@@ -474,7 +467,7 @@ def save_session_history():
         filename = f"{time_stamp}_{topic_code}_{student_id}.txt"
         filepath = os.path.join(SESSION_HISTORY_DIR, filename)
 
-        with open(filepath, "w") as file:
+        with open(filepath, "w", encoding="utf-8") as file:
             file.write(f"Subject: {subject}\n")
             file.write(f"Start Time: {start_time}\n")
             file.write(f"End Time: {end_time}\n")
