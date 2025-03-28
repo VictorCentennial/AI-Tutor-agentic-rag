@@ -16,8 +16,11 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import AIMessage, HumanMessage
 from langgraph.types import Command
 from aiTutorAgent import aiTutorAgent
-
 from rag import rag
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -261,6 +264,7 @@ def start_tutoring():
     folder_name = data.get("folder_name")  # Get the selected folder from request
     topic = data.get("topic")
     current_week = data.get("current_week")
+    student_id = data.get("student_id")
     if not folder_name:
         return jsonify({"error": "No folder selected"}), 400
 
@@ -347,7 +351,7 @@ def start_tutoring():
 
     thread_id = str(uuid.uuid4())
     thread_ids.append(thread_id)
-    thread = {"configurable": {"thread_id": str(thread_id)}}
+    thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
 
     response = aiTutorAgent.graph.invoke(initial_input, thread)
     response_json = messages_to_json(response["messages"])
@@ -363,7 +367,10 @@ def start_tutoring():
     graph_folder = "graph"
     if not os.path.exists(graph_folder):
         os.makedirs(graph_folder)
-    graph.draw_mermaid_png(output_file_path=os.path.join(graph_folder, "graph.png"))
+    try:
+        graph.draw_mermaid_png(output_file_path=os.path.join(graph_folder, "graph.png"))
+    except Exception as e:
+        logging.error(f"Error in draw_mermaid_png: {str(e)}")
 
     return jsonify(
         {
@@ -381,7 +388,8 @@ def continue_tutoring():
     data = request.json
     student_response = data.get("student_response", "")
     thread_id = data.get("thread_id")
-    thread = {"configurable": {"thread_id": str(thread_id)}}
+    student_id = data.get("student_id")
+    thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
 
     # aiTutorAgent.graph.update_state(
     #     thread, {"messages": [HumanMessage(content=student_response)]}
@@ -441,7 +449,9 @@ def save_session_history():
         student_id = data.get("student_id")
         topic_code = data.get("topic_code")  # Updated field name
         time_stamp = data.get("time_stamp")
-        thread = {"configurable": {"thread_id": str(thread_id)}}
+        thread = {
+            "configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}
+        }
         state = aiTutorAgent.graph.get_state(thread)
         message_history = state.values["messages"]
         subject = state.values["subject"]
@@ -729,13 +739,16 @@ def get_courses():
 
         # Get all folders (courses) in the course_material directory
         courses = [
-            f for f in os.listdir(course_material_path)
+            f
+            for f in os.listdir(course_material_path)
             if os.path.isdir(os.path.join(course_material_path, f))
         ]
         return jsonify({"courses": courses})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+# Route to get the material for a specific course
 @app.route("/get-course-material", methods=["GET"])
 def get_course_material():
     try:
@@ -763,7 +776,91 @@ def get_course_material():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/serve-file/<course>/<week>/<filename>')
+
+@app.route("/get-student-chat-history", methods=["POST"])
+def get_student_chat_history():
+    try:
+        data = request.json
+        student_id = data.get("student_id")
+        if not student_id:
+            return jsonify({"error": "Student ID is required"}), 400
+
+        # Access the MongoDB client from the checkpointer
+        mongodb_client = aiTutorAgent.memory.client
+
+        # These values need to match what was used in __init__.py
+        MONGODB_DB = os.getenv("MONGODB_DB", "ai_tutor_db")
+        MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "agent_checkpoints")
+
+        db = mongodb_client[MONGODB_DB]
+        checkpoints_collection = db[MONGODB_COLLECTION]
+
+        # Get distinct thread_ids from MongoDB
+        thread_ids = checkpoints_collection.distinct("thread_id")
+
+        conversations = []
+
+        # For each thread_id, check if it belongs to this student
+        for thread_id in thread_ids:
+            try:
+                # Create thread config
+                thread_config = {
+                    "configurable": {"thread_id": thread_id, "user_id": str(student_id)}
+                }
+
+                # Try to get state - this will succeed if the thread belongs to this user
+                # Otherwise, it will raise an exception
+                state = aiTutorAgent.graph.get_state(thread_config)
+
+                stored_user_id = state.metadata.get("user_id")
+                # print(f"stored_user_id: {stored_user_id}")
+                # print(f"student_id: {student_id}")
+                if stored_user_id != student_id:
+                    # Skip this thread – it doesn't belong to the given student
+                    continue
+
+                # Extract conversation information
+                messages = state.values.get("messages", [])
+
+                conversation = {
+                    "thread_id": thread_id,
+                    "subject": state.values.get("subject", "Unknown"),
+                    "created_at": state.created_at,
+                    "messages": messages_to_json(messages),
+                    "message_count": len(messages),
+                }
+
+                # Add additional metadata if available
+                if state.metadata:
+                    conversation["step"] = state.metadata.get("step", 0)
+
+                conversations.append(conversation)
+
+            except Exception as e:
+                # This thread doesn't belong to this user
+                logging.debug(f"Thread {thread_id} retrival error: {str(e)}")
+                continue
+
+        # Sort conversations by creation date (newest first)
+        conversations.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+        return jsonify(
+            {
+                "student_id": student_id,
+                "conversation_count": len(conversations),
+                "conversations": conversations,
+            }
+        )
+
+    except Exception as e:
+        logging.error(f"Error in get_user_chat_history: {str(e)}", exc_info=True)
+        return (
+            jsonify({"error": "Failed to retrieve chat history", "details": str(e)}),
+            500,
+        )
+
+
+@app.route("/serve-file/<course>/<week>/<filename>")
 def serve_file(course, week, filename):
     file_path = os.path.join(COURSE_MATERIAL_DIR, course, week)
     return send_from_directory(file_path, filename)
@@ -793,11 +890,15 @@ def add_course():
             week_folder = os.path.join(course_path, str(week))
             os.makedirs(week_folder, exist_ok=True)
 
-        return jsonify({"message": "Course folder and subfolders created successfully"}), 200
+        return (
+            jsonify({"message": "Course folder and subfolders created successfully"}),
+            200,
+        )
     except Exception as e:
         # Log the error for debugging
         print(f"Error in /api/add-course: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 @app.route("/rename-item", methods=["POST"])
 def rename_item():
@@ -827,8 +928,12 @@ def rename_item():
             if len(parts) != 3:
                 return jsonify({"error": "Invalid file path format"}), 400
             course_name, week_number, filename = parts
-            base_path = os.path.join("course_material", course_name, week_number, filename)
-            new_path = os.path.join("course_material", course_name, week_number, new_name)
+            base_path = os.path.join(
+                "course_material", course_name, week_number, filename
+            )
+            new_path = os.path.join(
+                "course_material", course_name, week_number, new_name
+            )
         else:
             return jsonify({"error": "Invalid item type"}), 400
 
@@ -838,11 +943,15 @@ def rename_item():
 
         # Rename the item
         os.rename(base_path, new_path)
-        return jsonify({"message": f"{item_type.capitalize()} renamed successfully"}), 200
+        return (
+            jsonify({"message": f"{item_type.capitalize()} renamed successfully"}),
+            200,
+        )
     except Exception as e:
         print(f"Error renaming {item_type}: {str(e)}")
         return jsonify({"error": f"Failed to rename {item_type}"}), 500
-    
+
+
 @app.route("/delete-item", methods=["POST"])
 def delete_item():
     try:
@@ -870,11 +979,15 @@ def delete_item():
         else:
             return jsonify({"error": "Invalid item type"}), 400
 
-        return jsonify({"message": f"{item_type.capitalize()} deleted successfully"}), 200
+        return (
+            jsonify({"message": f"{item_type.capitalize()} deleted successfully"}),
+            200,
+        )
     except Exception as e:
         print(f"Error deleting {item_type}: {str(e)}")
         return jsonify({"error": f"Failed to delete {item_type}"}), 500
-    
+
+
 @app.route("/upload-file", methods=["POST"])
 def upload_file():
     try:
@@ -886,14 +999,21 @@ def upload_file():
             return jsonify({"error": "Missing required parameters"}), 400
 
         # Save the file to the appropriate week folder
-        upload_path = os.path.join("course_material", course_name, week_number, file.filename)
+        upload_path = os.path.join(
+            "course_material", course_name, week_number, file.filename
+        )
         file.save(upload_path)
 
         return jsonify({"message": "File uploaded successfully"}), 200
     except Exception as e:
         print(f"Error uploading file: {str(e)}")
         return jsonify({"error": "Failed to upload file"}), 500
-    
+
+
 # Run the Flask app
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(
+        host=os.getenv("FLASK_HOST", "0.0.0.0"),
+        port=int(os.getenv("FLASK_PORT", 5001)),
+        debug=os.getenv("FLASK_DEBUG", "True").lower() == "true",
+    )

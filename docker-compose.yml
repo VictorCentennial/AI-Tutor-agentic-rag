@@ -1,0 +1,19 @@
+services:
+  flask-server:
+    build: ./flask-server # Path to your Flask server's Dockerfile
+    ports:
+      - "5001:5001" # Map host port 5001 to container port 5001
+    env_file:
+      - ./flask-server/.env # Load environment variables from .env file
+    volumes:
+      - ./flask-server:/app # Mount flask-server directory to /app in container for code changes to reflect without rebuilding (dev only)
+  react-client:
+    build: ./react-client # Path to your React client's Dockerfile
+    ports:
+      - "3000:80" # Map host port 3000 to container port 80
+    env_file:
+      - ./react-client/.env # Base environment variables
+    volumes:
+      - ./react-client:/app # Mount react-client directory to /app in container for code changes to reflect without rebuilding (dev only)
+    depends_on:
+      - flask-server
