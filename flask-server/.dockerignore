@@ -1,0 +1,12 @@
+.env
+.env.template
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+vector_store/*
+graph/*
+static/*
+saved_session_history/*
+LangGraph_examples/*
