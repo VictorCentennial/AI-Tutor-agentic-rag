@@ -6,19 +6,21 @@ import logging
 import re
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import shutil
 
-# from langchain.document_loaders import TextLoader
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import AIMessage, HumanMessage
 from langgraph.types import Command
-from aiTutorAgent import aiTutorAgent
+from aiTutorAgent import aiTutorAgent, mongodb_client
 from rag import rag
 
 from dotenv import load_dotenv
+
+import threading
+import time
 
 load_dotenv()
 
@@ -34,24 +36,9 @@ TOTAL_WEEKS = 14
 
 thread_ids = []
 
-# Function to load document content using LangChain
-# def load_document_content(file_path):
-#     try:
-#         # Load documents from the file using TextLoader
-#         loader = TextLoader(file_path)
-#         documents = loader.load()
-
-#         # Split text into smaller chunks
-#         text_splitter = RecursiveCharacterTextSplitter(
-#             chunk_size=1000, chunk_overlap=200
-#         )
-#         docs = text_splitter.split_documents(documents)
-
-#         # Concatenate the chunks into a single context string
-#         context = "\n".join([doc.page_content for doc in docs])
-#         return context
-#     except Exception as e:
-#         return f"Error loading document content: {e}"
+# to store vector stores and their access times
+app.vector_stores = {}
+app.vector_store_access_times = {}
 
 
 def get_graph_data(graph):
@@ -326,7 +313,7 @@ def start_tutoring():
     # titles = rag.get_titles()
 
     # Set vector store on aiTutorAgent instance
-    aiTutorAgent.vector_store = vector_store
+    # aiTutorAgent.vector_store = vector_store
 
     # # Clear the conversation memory at the start of a new session
     # aiTutorAgent.memory.chat_memory.clear()
@@ -352,6 +339,9 @@ def start_tutoring():
     thread_id = str(uuid.uuid4())
     thread_ids.append(thread_id)
     thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
+
+    app.vector_stores[thread_id] = vector_store
+    update_vector_store_access_time(thread_id)  # Track access time
 
     response = aiTutorAgent.graph.invoke(initial_input, thread)
     response_json = messages_to_json(response["messages"])
@@ -391,26 +381,12 @@ def continue_tutoring():
     student_id = data.get("student_id")
     thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
 
-    # aiTutorAgent.graph.update_state(
-    #     thread, {"messages": [HumanMessage(content=student_response)]}
-    # )
-
-    # response = aiTutorAgent.graph.invoke(None, thread)
-    # First get the current state
+    # Update access time if this thread has a vector store
+    if thread_id in app.vector_stores:
+        update_vector_store_access_time(thread_id)
 
     try:
         response = aiTutorAgent.graph.invoke(Command(resume=student_response), thread)
-
-        # # First update the state with the new message
-        # current_state = aiTutorAgent.graph.get_state(thread)
-        # current_messages = current_state.values.get("messages", [])
-        # current_messages.append(HumanMessage(content=student_response))
-
-        # # Update the state with the new message
-        # aiTutorAgent.graph.update_state(thread, {"messages": current_messages})
-
-        # # Then invoke the graph with None to process the updated state
-        # response = aiTutorAgent.graph.invoke(None, thread)
 
         response_json = messages_to_json(response["messages"])
         state = aiTutorAgent.graph.get_state(thread)
@@ -785,9 +761,6 @@ def get_student_chat_history():
         if not student_id:
             return jsonify({"error": "Student ID is required"}), 400
 
-        # Access the MongoDB client from the checkpointer
-        mongodb_client = aiTutorAgent.memory.client
-
         # These values need to match what was used in __init__.py
         MONGODB_DB = os.getenv("MONGODB_DB", "ai_tutor_db")
         MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "agent_checkpoints")
@@ -1009,6 +982,54 @@ def upload_file():
         print(f"Error uploading file: {str(e)}")
         return jsonify({"error": "Failed to upload file"}), 500
 
+
+# Function to update access time for a vector store
+def update_vector_store_access_time(thread_id):
+    """Update the last access time for a thread's vector store"""
+    app.vector_store_access_times[thread_id] = datetime.now()
+
+
+# Function to clean up expired vector stores
+def cleanup_vector_stores():
+    """Remove vector stores for expired sessions to prevent memory leaks"""
+    if not hasattr(app, "vector_store_access_times"):
+        return
+
+    current_time = datetime.now()
+    expired_time = current_time - timedelta(
+        hours=2
+    )  # Consider sessions older than 2 hours as expired
+
+    to_remove = []
+    for thread_id, last_access in app.vector_store_access_times.items():
+        if last_access < expired_time:
+            to_remove.append(thread_id)
+
+    for thread_id in to_remove:
+        if thread_id in app.vector_stores:
+            del app.vector_stores[thread_id]
+        if thread_id in app.vector_store_access_times:
+            del app.vector_store_access_times[thread_id]
+
+    if to_remove:
+        logging.info(f"Cleaned up {len(to_remove)} expired vector stores")
+
+
+# Set up scheduled cleanup task to run every hour
+def scheduled_cleanup():
+    """Run cleanup tasks periodically"""
+    while True:
+        try:
+            time.sleep(3600)  # Sleep for 1 hour
+            with app.app_context():
+                cleanup_vector_stores()
+        except Exception as e:
+            logging.error(f"Error in scheduled cleanup: {str(e)}")
+
+
+# Start the cleanup thread
+cleanup_thread = threading.Thread(target=scheduled_cleanup, daemon=True)
+cleanup_thread.start()
 
 # Run the Flask app
 if __name__ == "__main__":
