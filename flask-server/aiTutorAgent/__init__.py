@@ -20,7 +20,14 @@ GOOGLE_MODEL_NAME = os.getenv(
 )  # Use "gemini-pro" or your model name
 
 # MongoDB connection settings
+logging.info(f"MONGODB_URI environment variable: {os.environ.get('MONGODB_URI')}")
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+if not MONGODB_URI or not (
+    MONGODB_URI.startswith("mongodb://") or MONGODB_URI.startswith("mongodb+srv://")
+):
+    logging.error(f"Invalid MONGODB_URI: {MONGODB_URI}")
+    raise ValueError("Invalid MONGODB_URI")
+
 MONGODB_DB = os.getenv("MONGODB_DB", "ai_tutor_db")
 MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "agent_checkpoints")
 
