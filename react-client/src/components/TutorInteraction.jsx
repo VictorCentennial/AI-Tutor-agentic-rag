@@ -10,8 +10,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useConfig } from "../utils/config";
 
-const debugMode = import.meta.env.VITE_DEBUG_MODE === "true";
 
 function TutorInteraction({
   aiMessages,
@@ -24,6 +24,9 @@ function TutorInteraction({
   remainingTime,
   studentId,
 }) {
+  const config = useConfig();
+  const debugMode = Boolean(config.DEBUG_MODE);
+
   const [userMessage, setUserMessage] = useState("");
   const interactionBoxRef = useRef(null);
   const [graphData, setGraphData] = useState(null);
