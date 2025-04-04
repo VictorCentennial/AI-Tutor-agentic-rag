@@ -62,6 +62,6 @@ CMD ["gunicorn", "--bind", "0.0.0.0:5001", "--workers", "4", "--timeout", "120",
 
 ##HOW TO CREATE AND RUN THE DOCKER CONTAINER
 #cd flask-server
-# docker build -t ai-tutor-flask -f Dockerfile-uv .
-#docker run -d -p 5001:5001 --name ai-tutor-container ai-tutor-flask
+# docker build -t ai-tutor-flask-no-env -f Dockerfile . 
+# docker run -d -p 5001:5001 --name ai-tutor-flask-no-env --env-file .env ai-tutor-flask-no-env
 
