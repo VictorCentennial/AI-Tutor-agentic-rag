@@ -1473,33 +1473,54 @@ class AiTutorAgent:
         Raises:
             ValueError: If vector store not found for the thread_id
         """
-        # Get the vector_store for this thread from the app's dictionary
-        from flask import current_app
 
-        if not hasattr(current_app, "vector_stores"):
-            raise ValueError(
-                "Flask app does not have vector_stores dictionary initialized"
+        try:
+            if not hasattr(current_app, "vector_stores"):
+                raise ValueError(
+                    "Flask app does not have vector_stores dictionary initialized"
+                )
+
+            if thread_id not in current_app.vector_stores:
+                # Try to get thread state to provide more informative error
+                thread = {"configurable": {"thread_id": str(thread_id)}}
+                try:
+                    state = self.graph.get_state(thread)
+                    subject = state.values.get("subject", "unknown")
+                    current_week = state.values.get("current_week", "unknown")
+                    has_paths = "vector_store_paths" in state.values
+                    raise ValueError(
+                        f"No vector store found for thread {thread_id}. "
+                        f"Subject: {subject}, Week: {current_week}, "
+                        f"Has paths: {has_paths}. The session may have expired."
+                    )
+                except Exception as inner_e:
+                    # Fall back to simpler error if we can't get state info
+                    raise ValueError(
+                        f"No vector store found for thread {thread_id}. The session may have expired."
+                    )
+
+            vector_store = current_app.vector_stores[thread_id]
+
+            # Perform the search
+            vector_search_results = vector_store.similarity_search(question, k=k)
+
+            # Clean up the results before joining
+            vector_search_results_str = (
+                "\n\n".join(
+                    " ".join(doc.page_content.split())  # Clean up extra spaces
+                    for doc in vector_search_results
+                )
+                if vector_search_results
+                else "No related content"
             )
 
-        if thread_id not in current_app.vector_stores:
-            raise ValueError(
-                f"No vector store found for thread {thread_id}. The session may have expired."
-            )
+            logging.info(f"vector_search_results_str: {vector_search_results_str}")
+            return vector_search_results_str
 
-        vector_store = current_app.vector_stores[thread_id]
-
-        # Perform the search
-        vector_search_results = vector_store.similarity_search(question, k=k)
-
-        # Clean up the results before joining
-        vector_search_results_str = (
-            "\n\n".join(
-                " ".join(doc.page_content.split())  # Clean up extra spaces
-                for doc in vector_search_results
-            )
-            if vector_search_results
-            else "No related content"
-        )
-
-        logging.info(f"vector_search_results_str: {vector_search_results_str}")
-        return vector_search_results_str
+        except ValueError as e:
+            # Re-raise value errors with the original message
+            raise e
+        except Exception as e:
+            # For other errors, provide more context
+            logging.error(f"Error in vector_search: {str(e)}")
+            raise ValueError(f"Failed to search vector store: {str(e)}")
