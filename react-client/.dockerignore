@@ -1,0 +1,30 @@
+# Development files
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.*
+!.env.template
+
+# Build files that will be regenerated
+dist/
+coverage/
+.nyc_output
+build/
+
+# Other unnecessary files
+README.md
+*.md
+.DS_Store
+.editorconfig
+.prettierrc
+.eslintcache

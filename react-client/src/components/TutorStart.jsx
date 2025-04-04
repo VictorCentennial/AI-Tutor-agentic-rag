@@ -9,6 +9,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useConfig } from "../utils/config";
 
 
 function TutorStart({ onStartTutoring, isLoading }) {
@@ -30,10 +31,13 @@ function TutorStart({ onStartTutoring, isLoading }) {
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [isConversationModalOpen, setIsConversationModalOpen] = useState(false);
 
-  const semesterStartDate = import.meta.env.VITE_SEMESTER_START_DATE;
-  const totalWeeks = import.meta.env.VITE_TOTAL_WEEKS || 14;
+  const config = useConfig();
+
+  const semesterStartDate = config.SEMESTER_START_DATE;
+  const totalWeeks = config.TOTAL_WEEKS || 14;
   const calculatedCurrentWeek = semesterStartDate ? Math.floor((new Date() - new Date(semesterStartDate)) / (7 * 24 * 60 * 60 * 1000)) + 1 : 1;
-  const debugMode = import.meta.env.VITE_DEBUG_MODE === 'true';
+  const debugMode = Boolean(config.DEBUG_MODE);
+
 
   const weekAutoSet = !debugMode && semesterStartDate && calculatedCurrentWeek < totalWeeks;
 

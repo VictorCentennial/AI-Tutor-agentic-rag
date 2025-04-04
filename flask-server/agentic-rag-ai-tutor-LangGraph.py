@@ -6,23 +6,21 @@ import logging
 import re
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import shutil
 
-# from langchain.document_loaders import TextLoader
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import AIMessage, HumanMessage
 from langgraph.types import Command
-from aiTutorAgent import aiTutorAgent
+from aiTutorAgent import aiTutorAgent, mongodb_client
 from rag import rag
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
-from dotenv import load_dotenv
+import threading
+import time
 
 load_dotenv()
 
@@ -38,24 +36,9 @@ TOTAL_WEEKS = 14
 
 thread_ids = []
 
-# Function to load document content using LangChain
-# def load_document_content(file_path):
-#     try:
-#         # Load documents from the file using TextLoader
-#         loader = TextLoader(file_path)
-#         documents = loader.load()
-
-#         # Split text into smaller chunks
-#         text_splitter = RecursiveCharacterTextSplitter(
-#             chunk_size=1000, chunk_overlap=200
-#         )
-#         docs = text_splitter.split_documents(documents)
-
-#         # Concatenate the chunks into a single context string
-#         context = "\n".join([doc.page_content for doc in docs])
-#         return context
-#     except Exception as e:
-#         return f"Error loading document content: {e}"
+# to store vector stores and their access times
+app.vector_stores = {}
+app.vector_store_access_times = {}
 
 
 def get_graph_data(graph):
@@ -273,15 +256,9 @@ def start_tutoring():
         return jsonify({"error": "No folder selected"}), 400
 
     folder_path = os.path.join("course_material", folder_name)
-    # vector_store_path = os.path.join("vector_store", folder_name)
 
     if not os.path.exists(folder_path):
         return jsonify({"error": "Selected folder not found"}), 404
-
-    # print(f"topic: {topic}")
-    # print(f"folder_name: {folder_name}")
-    # print(f"vector_store_path: {vector_store_path}")
-    # print(f"folder_path: {folder_path}")
 
     vector_store = None
     vector_store_paths = []
@@ -316,27 +293,12 @@ def start_tutoring():
         logging.error(f"No vector stores found for folder {folder_name}")
         return jsonify({"error": "No vector stores found for folder"}), 404
 
-    # logging.debug(f"Vector store created: {vector_store}")
-
     if topic != "ALL":
         topic = topic.split("\\", 2)[1]
         logging.info(f"Topic Selected: {topic}")
         titles = rag.get_titles(topic)
     else:
         titles = rag.get_titles()
-
-    # ##for loading from saved vector store
-    # vector_store = rag.load_vector_store(vector_store_path)
-    # titles = rag.get_titles()
-
-    # Set vector store on aiTutorAgent instance
-    aiTutorAgent.vector_store = vector_store
-
-    # # Clear the conversation memory at the start of a new session
-    # aiTutorAgent.memory.chat_memory.clear()
-
-    # Load context content from the document
-    # context = load_document_content(file_path)
 
     initial_input = {
         "subject": folder_name,
@@ -351,11 +313,16 @@ def start_tutoring():
         "task_breakdown": [],
         "current_task_index": 0,
         "task_solving_start_index": 0,
+        "vector_store_paths": vector_store_paths,  # Store vector store paths in the state
+        "current_week": current_week,  # Store current week for recovery purposes
     }
 
     thread_id = str(uuid.uuid4())
     thread_ids.append(thread_id)
     thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
+
+    app.vector_stores[thread_id] = vector_store
+    update_vector_store_access_time(thread_id)  # Track access time
 
     response = aiTutorAgent.graph.invoke(initial_input, thread)
     response_json = messages_to_json(response["messages"])
@@ -395,34 +362,76 @@ def continue_tutoring():
     student_id = data.get("student_id")
     thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
 
-    # aiTutorAgent.graph.update_state(
-    #     thread, {"messages": [HumanMessage(content=student_response)]}
-    # )
+    # Update access time if this thread has a vector store
+    if thread_id in app.vector_stores:
+        update_vector_store_access_time(thread_id)
+    else:
+        # Recovery mechanism - try to recreate the vector store
+        try:
+            logging.info(
+                f"Vector store missing for thread {thread_id}. Attempting recovery..."
+            )
 
-    # response = aiTutorAgent.graph.invoke(None, thread)
-    # First get the current state
+            # Get the session state
+            state = aiTutorAgent.graph.get_state(thread)
+
+            # Extract vector_store_paths and other necessary information from state
+            vector_store_paths = state.values.get("vector_store_paths", [])
+            folder_name = state.values.get("subject")
+            current_week = state.values.get("current_week")
+
+            logging.info(
+                f"Recovery details: folder={folder_name}, current_week={current_week}, paths={vector_store_paths}"
+            )
+
+            if vector_store_paths:
+                # Recreate the vector store from the saved paths
+                vector_store = load_vector_store(vector_store_paths)
+                app.vector_stores[thread_id] = vector_store
+                update_vector_store_access_time(thread_id)
+                logging.info(
+                    f"Successfully recovered vector store for thread {thread_id}"
+                )
+            elif folder_name and current_week:
+                # If paths not available but we have folder name and week, try to rebuild paths
+                logging.info(
+                    f"No vector store paths available. Rebuilding from folder and week..."
+                )
+                rebuilt_vector_store_paths = []
+
+                for week in range(1, int(current_week) + 1):
+                    vector_store_path_week = os.path.join(
+                        "vector_store", folder_name, str(week)
+                    )
+                    if os.path.exists(vector_store_path_week):
+                        rebuilt_vector_store_paths.append(vector_store_path_week)
+
+                if rebuilt_vector_store_paths:
+                    vector_store = load_vector_store(rebuilt_vector_store_paths)
+                    app.vector_stores[thread_id] = vector_store
+                    update_vector_store_access_time(thread_id)
+
+                    # Update the state with the rebuilt paths
+                    aiTutorAgent.graph.update_state(
+                        thread, {"vector_store_paths": rebuilt_vector_store_paths}
+                    )
+                    logging.info(
+                        f"Successfully rebuilt vector store for thread {thread_id}"
+                    )
+                else:
+                    logging.error(f"Could not find any vector store paths for recovery")
+            else:
+                logging.error(f"Insufficient information for vector store recovery")
+        except Exception as e:
+            logging.error(f"Vector store recovery failed: {str(e)}")
 
     try:
         response = aiTutorAgent.graph.invoke(Command(resume=student_response), thread)
-
-        # # First update the state with the new message
-        # current_state = aiTutorAgent.graph.get_state(thread)
-        # current_messages = current_state.values.get("messages", [])
-        # current_messages.append(HumanMessage(content=student_response))
-
-        # # Update the state with the new message
-        # aiTutorAgent.graph.update_state(thread, {"messages": current_messages})
-
-        # # Then invoke the graph with None to process the updated state
-        # response = aiTutorAgent.graph.invoke(None, thread)
 
         response_json = messages_to_json(response["messages"])
         state = aiTutorAgent.graph.get_state(thread)
         next_state = state.next[0] if state.next else ""
 
-        # print(f"State: {state_to_json(state)}")
-        # logging.info(f"jsonify: {jsonify( {"state": state_to_json(state)})}")
-        # logging.info(f"next_state: {next_state}")
         return jsonify(
             {
                 "messages": response_json,
@@ -456,9 +465,6 @@ def save_session_history():
         thread = {
             "configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}
         }
-        thread = {
-            "configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}
-        }
         state = aiTutorAgent.graph.get_state(thread)
         message_history = state.values["messages"]
         subject = state.values["subject"]
@@ -474,7 +480,7 @@ def save_session_history():
         filename = f"{time_stamp}_{topic_code}_{student_id}.txt"
         filepath = os.path.join(SESSION_HISTORY_DIR, filename)
 
-        with open(filepath, "w") as file:
+        with open(filepath, "w", encoding="utf-8") as file:
             file.write(f"Subject: {subject}\n")
             file.write(f"Start Time: {start_time}\n")
             file.write(f"End Time: {end_time}\n")
@@ -792,9 +798,6 @@ def get_student_chat_history():
         if not student_id:
             return jsonify({"error": "Student ID is required"}), 400
 
-        # Access the MongoDB client from the checkpointer
-        mongodb_client = aiTutorAgent.memory.client
-
         # These values need to match what was used in __init__.py
         MONGODB_DB = os.getenv("MONGODB_DB", "ai_tutor_db")
         MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "agent_checkpoints")
@@ -1016,6 +1019,87 @@ def upload_file():
         print(f"Error uploading file: {str(e)}")
         return jsonify({"error": "Failed to upload file"}), 500
 
+
+# Function to update access time for a vector store
+def update_vector_store_access_time(thread_id):
+    """Update the last access time for a thread's vector store"""
+    app.vector_store_access_times[thread_id] = datetime.now()
+
+
+# Function to clean up expired vector stores
+def cleanup_vector_stores():
+    """Remove vector stores for expired sessions to prevent memory leaks"""
+    if not hasattr(app, "vector_store_access_times"):
+        return
+
+    # First clean up based on access time
+    current_time = datetime.now()
+    expired_time = current_time - timedelta(
+        hours=2
+    )  # Sessions older than 2 hours expire
+
+    to_remove = []
+    for thread_id, last_access in app.vector_store_access_times.items():
+        if last_access < expired_time:
+            to_remove.append(thread_id)
+
+    for thread_id in to_remove:
+        if thread_id in app.vector_stores:
+            del app.vector_stores[thread_id]
+        if thread_id in app.vector_store_access_times:
+            del app.vector_store_access_times[thread_id]
+
+    if to_remove:
+        logging.info(f"Cleaned up {len(to_remove)} expired vector stores based on time")
+
+    # Then check for orphaned vector stores that might exist in app.vector_stores
+    # but not be accessible in MongoDB (thread no longer exists)
+    orphaned = []
+
+    # Collect all thread_ids from MongoDB
+    try:
+        MONGODB_DB = os.getenv("MONGODB_DB", "ai_tutor_db")
+        MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "agent_checkpoints")
+
+        db = mongodb_client[MONGODB_DB]
+        checkpoints_collection = db[MONGODB_COLLECTION]
+
+        # Get existing thread IDs from MongoDB
+        existing_thread_ids = set(checkpoints_collection.distinct("thread_id"))
+
+        # Find thread IDs that have vector stores but don't exist in MongoDB
+        for thread_id in list(app.vector_stores.keys()):
+            if thread_id not in existing_thread_ids:
+                orphaned.append(thread_id)
+
+        # Remove orphaned vector stores
+        for thread_id in orphaned:
+            if thread_id in app.vector_stores:
+                del app.vector_stores[thread_id]
+            if thread_id in app.vector_store_access_times:
+                del app.vector_store_access_times[thread_id]
+
+        if orphaned:
+            logging.info(f"Cleaned up {len(orphaned)} orphaned vector stores")
+    except Exception as e:
+        logging.error(f"Error checking for orphaned vector stores: {str(e)}")
+
+
+# Set up scheduled cleanup task to run every hour
+def scheduled_cleanup():
+    """Run cleanup tasks periodically"""
+    while True:
+        try:
+            time.sleep(3600)  # Sleep for 1 hour
+            with app.app_context():
+                cleanup_vector_stores()
+        except Exception as e:
+            logging.error(f"Error in scheduled cleanup: {str(e)}")
+
+
+# Start the cleanup thread
+cleanup_thread = threading.Thread(target=scheduled_cleanup, daemon=True)
+cleanup_thread.start()
 
 # Run the Flask app
 if __name__ == "__main__":

@@ -18,8 +18,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-from langgraph.checkpoint.sqlite import SqliteSaver
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+# from langgraph.checkpoint.sqlite import SqliteSaver
+# from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.checkpoint.memory import MemorySaver
 
 from langgraph.graph import START, END, StateGraph
@@ -35,6 +35,9 @@ import logging
 
 from functools import wraps
 from typing import Callable, TypeVar, ParamSpec, Any
+
+from flask import current_app
+from langchain_core.runnables.config import RunnableConfig
 
 
 class AgentState(TypedDict):
@@ -929,17 +932,17 @@ class AiTutorAgent:
         )
 
     def llm_answer_question(
-        self, state: AgentState
+        self, state: AgentState, config: RunnableConfig
     ) -> Command[Literal["student_answer_question"]]:
+
+        thread_id = config["metadata"]["thread_id"]
+        if thread_id is None:
+            raise ValueError("No thread_id in current context")
+
         while True:
             question = state["student_question"]
-            # Use instance vector_store instead of state
-            if self.vector_store is None:
-                raise ValueError(
-                    "Vector store not initialized. Call set_vector_store first."
-                )
 
-            result_from_document_search = self.vector_search(question)
+            result_from_document_search = self.vector_search(question, thread_id)
             response = self.llm.invoke(
                 self.QUESTION_ANSWERING_PROMPT.format(
                     question=question,
@@ -1205,10 +1208,16 @@ class AiTutorAgent:
 
     @retry_on_error(validator=validate_task_breakdown)
     def question_breakdown(
-        self, state: AgentState
+        self, state: AgentState, config: RunnableConfig
     ) -> Command[Literal["subtask_guideline"]]:
         question = state["student_question"]
-        related_course_content = self.vector_search(question)
+
+        # Extract thread_id from config
+        thread_id = config["metadata"]["thread_id"]
+        if thread_id is None:
+            raise ValueError("No thread_id in current context")
+
+        related_course_content = self.vector_search(question, thread_id)
         response = self.llm.invoke(
             self.QUESTION_BREAKDOWN_PROMPT.format(
                 question=question, related_course_content=related_course_content
@@ -1239,12 +1248,18 @@ class AiTutorAgent:
         )
 
     def subtask_guideline(
-        self, state: AgentState
+        self, state: AgentState, config: RunnableConfig
     ) -> Command[Literal["student_answer_subtask"]]:
         task_breakdown = state["task_breakdown"]
         current_task_index = state["current_task_index"]
         current_task = task_breakdown[current_task_index]
-        vector_search_results = self.vector_search(current_task)
+
+        # Extract thread_id from config
+        thread_id = config["metadata"]["thread_id"]
+        if thread_id is None:
+            raise ValueError("No thread_id in current context")
+
+        vector_search_results = self.vector_search(current_task, thread_id)
         previous_conversation = state["messages"][state["task_solving_start_index"] :]
         response = self.llm.invoke(
             self.SUBTASK_GUIDELINE_PROMPT.format(
@@ -1359,7 +1374,7 @@ class AiTutorAgent:
         )
 
     def explain_subtask_answer(
-        self, state: AgentState
+        self, state: AgentState, config: RunnableConfig
     ) -> Command[Literal["task_solving_summary", "subtask_guideline"]]:
         current_task_index = state["current_task_index"]
         task_breakdown = state["task_breakdown"]
@@ -1367,7 +1382,12 @@ class AiTutorAgent:
         student_subtask_start_index = -2 * (self.MAX_ANSWER_ATTEMPTS)
         student_answer_attempt = state["messages"][student_subtask_start_index:]
 
-        related_course_content = self.vector_search(current_task)
+        # Extract thread_id from config
+        thread_id = config["metadata"]["thread_id"]
+        if thread_id is None:
+            raise ValueError("No thread_id in current context")
+
+        related_course_content = self.vector_search(current_task, thread_id)
 
         response = self.llm.invoke(
             self.EXPLAIN_SUBTASK_ANSWER_PROMPT.format(
@@ -1438,22 +1458,69 @@ class AiTutorAgent:
             thread, {"duration_minutes": current_duration + extend_minutes}
         )
 
-    def vector_search(self, question: str, k: int = 3) -> str:
-        if self.vector_store is None:
-            raise ValueError(
-                "Vector store not initialized. Call set_vector_store first."
-            )
-        vector_search_results = self.vector_store.similarity_search(question, k=k)
+    def vector_search(self, question: str, thread_id: str, k: int = 3) -> str:
+        """
+        Search the vector store for documents related to the query.
 
-        # Clean up the results before joining
-        vector_search_results_str = (
-            "\n\n".join(
-                " ".join(doc.page_content.split())  # Clean up extra spaces
-                for doc in vector_search_results
-            )
-            if vector_search_results
-            else "No related content"
-        )
+        Args:
+            question (str): The search query
+            thread_id (str): The thread ID to identify which vector store to use
+            k (int, optional): Number of documents to return. Defaults to 3.
 
-        logging.info(f"vector_search_results_str: {vector_search_results_str}")
-        return vector_search_results_str
+        Returns:
+            str: Combined content from matching documents
+
+        Raises:
+            ValueError: If vector store not found for the thread_id
+        """
+
+        try:
+            if not hasattr(current_app, "vector_stores"):
+                raise ValueError(
+                    "Flask app does not have vector_stores dictionary initialized"
+                )
+
+            if thread_id not in current_app.vector_stores:
+                # Try to get thread state to provide more informative error
+                thread = {"configurable": {"thread_id": str(thread_id)}}
+                try:
+                    state = self.graph.get_state(thread)
+                    subject = state.values.get("subject", "unknown")
+                    current_week = state.values.get("current_week", "unknown")
+                    has_paths = "vector_store_paths" in state.values
+                    raise ValueError(
+                        f"No vector store found for thread {thread_id}. "
+                        f"Subject: {subject}, Week: {current_week}, "
+                        f"Has paths: {has_paths}. The session may have expired."
+                    )
+                except Exception as inner_e:
+                    # Fall back to simpler error if we can't get state info
+                    raise ValueError(
+                        f"No vector store found for thread {thread_id}. The session may have expired."
+                    )
+
+            vector_store = current_app.vector_stores[thread_id]
+
+            # Perform the search
+            vector_search_results = vector_store.similarity_search(question, k=k)
+
+            # Clean up the results before joining
+            vector_search_results_str = (
+                "\n\n".join(
+                    " ".join(doc.page_content.split())  # Clean up extra spaces
+                    for doc in vector_search_results
+                )
+                if vector_search_results
+                else "No related content"
+            )
+
+            logging.info(f"vector_search_results_str: {vector_search_results_str}")
+            return vector_search_results_str
+
+        except ValueError as e:
+            # Re-raise value errors with the original message
+            raise e
+        except Exception as e:
+            # For other errors, provide more context
+            logging.error(f"Error in vector_search: {str(e)}")
+            raise ValueError(f"Failed to search vector store: {str(e)}")
