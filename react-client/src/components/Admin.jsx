@@ -46,6 +46,11 @@ const AdminDashboard = () => {
     }
   };
   
+  useEffect(() => {
+    if (currentView !== "analytics") {
+      setAnalysisResult(null); // Clear results when leaving analytics view
+    }
+  }, [currentView]);
 
   // Fetch statistics when the component mounts
   useEffect(() => {
@@ -199,7 +204,7 @@ const AdminDashboard = () => {
               <div className="card-content">
                 <div className="visualization-image">
                   <img
-                    src={`http://localhost:5000/static/${src}`}
+                    src={`http://localhost:5001/static/${src}`}
                     alt={key}
                     className="image"
                   />
@@ -567,7 +572,7 @@ const AdminDashboard = () => {
             {currentView === "main" && renderHomePage()}
             {currentView === "analytics" && renderAnalysisFilters()}
             {currentView === "updateCourse" && renderCourseManagement()}
-            {analysisResult && renderAnalysisResults()}
+            {currentView === "analytics" && analysisResult && renderAnalysisResults()}
           </div>
         </div>
       </div>

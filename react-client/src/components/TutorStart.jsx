@@ -329,7 +329,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
                   key={index}
                   action
                   onClick={() => handleConversationSelect(conversation)}
-                  className="d-flex justify-content-between align-items-center"
+                  className="d-flex flex-sm-row flex-column justify-content-between align-items-start p-3"
                   style={{
                     margin: '8px 0',
                     borderRadius: '5px',
@@ -338,16 +338,34 @@ function TutorStart({ onStartTutoring, isLoading }) {
                     transition: 'all 0.2s ease'
                   }}
                 >
-                  <div>
-                    <strong style={{ color: '#1976d2' }}>{conversation.subject || 'Unknown Subject'}</strong>
+                  <div className="w-100 mb-2 mb-sm-0">
+                    <strong 
+                      className="d-block text-truncate" 
+                      style={{ color: '#1976d2', maxWidth: '90%' }}
+                      title={conversation.subject || 'Unknown Subject'}
+                    >
+                      {conversation.subject || 'Unknown Subject'}
+                    </strong>
                     <div className="text-muted small">
-                      {formatDate(conversation.created_at)}
+                      <span className="d-none d-sm-inline">
+                        {formatDate(conversation.created_at)}
+                      </span>
+                      <span className="d-inline d-sm-none">
+                        {new Date(conversation.created_at).toLocaleDateString()}
+                      </span>
                     </div>
                     <div className="text-muted small">
                       Messages: {conversation.message_count}
                     </div>
                   </div>
-                  <Button variant="outline-primary" size="sm">View</Button>
+                  <Button 
+                    variant="outline-primary" 
+                    size="sm"
+                    className="w-100 w-sm-auto mt-2 mt-sm-0"
+                    style={{ minWidth: '80px' }}
+                  >
+                    View
+                  </Button>
                 </ListGroup.Item>
               ))}
             </ListGroup>
