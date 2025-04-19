@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask import send_from_directory
+import tempfile
 
 import logging
 import re
@@ -22,21 +23,29 @@ from dotenv import load_dotenv
 import threading
 import time
 
+from uuid import uuid4
+
+from config import TOTAL_WEEKS
+
 load_dotenv()
+
+use_mongodb = os.environ.get("USE_MONGODB", "true").lower() == "true"
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Set up logging for debugging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
-# constants
-TOTAL_WEEKS = 14
 
 thread_ids = []
 
-# to store vector stores and their access times
+# to store local vector stores and their access times
 app.vector_stores = {}
 app.vector_store_access_times = {}
 
@@ -116,23 +125,28 @@ def state_to_json(state_snapshot):
 @app.route("/get-folders", methods=["GET"])
 def get_folders():
     try:
-        course_material_path = "course_material"
-        logging.debug(
-            f"Looking for folders in: {os.path.abspath(course_material_path)}"
-        )
+        if use_mongodb:
+            folders = rag.get_courses()
+            logging.debug(f"Found folders: {folders}")
+            return jsonify({"folders": folders})
+        else:
+            course_material_path = "course_material"
+            logging.debug(
+                f"Looking for folders in: {os.path.abspath(course_material_path)}"
+            )
 
-        if not os.path.exists(course_material_path):
-            logging.error(f"Directory not found: {course_material_path}")
-            return jsonify({"error": "Course material directory not found"}), 404
+            if not os.path.exists(course_material_path):
+                logging.error(f"Directory not found: {course_material_path}")
+                return jsonify({"error": "Course material directory not found"}), 404
 
-        folders = [
-            f
-            for f in os.listdir(course_material_path)
-            if os.path.isdir(os.path.join(course_material_path, f))
-        ]
+            folders = [
+                f
+                for f in os.listdir(course_material_path)
+                if os.path.isdir(os.path.join(course_material_path, f))
+            ]
 
-        logging.debug(f"Found folders: {folders}")
-        return jsonify({"folders": folders})
+            logging.debug(f"Found folders: {folders}")
+            return jsonify({"folders": folders})
     except Exception as e:
         logging.error(f"Error in get_folders: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -141,43 +155,41 @@ def get_folders():
 @app.route("/get-topics", methods=["GET"])
 def get_topics():
     try:
-        folder_name = request.args.get("folder")
-        current_week = request.args.get("current_week")
-        if not folder_name:
-            return jsonify({"error": "No folder specified"}), 400
+        if use_mongodb:
+            topics = rag.get_topics()
+            logging.debug(f"Found topics: {topics}")
+            return jsonify({"topics": topics})
+        else:
+            folder_name = request.args.get("folder")
+            current_week = request.args.get("current_week")
+            if not folder_name:
+                return jsonify({"error": "No folder specified"}), 400
 
-        if not current_week:
-            return jsonify({"error": "No current week specified"}), 400
+            if not current_week:
+                return jsonify({"error": "No current week specified"}), 400
 
-        try:
-            current_week = int(current_week)
-        except ValueError:
-            return jsonify({"error": "Invalid current week value"}), 400
+            try:
+                current_week = int(current_week)
+            except ValueError:
+                return jsonify({"error": "Invalid current week value"}), 400
 
-        folder_path = os.path.join("course_material", folder_name)
-        if not os.path.exists(folder_path):
-            return jsonify({"error": "Folder not found"}), 404
+            folder_path = os.path.join("course_material", folder_name)
+            if not os.path.exists(folder_path):
+                return jsonify({"error": "Folder not found"}), 404
 
-        # Get all files in the folder
-        topics_uptil_current_week = []
-        for week in range(1, current_week + 1):
-            week_path = os.path.join(folder_path, str(week))
-            week_topics = os.listdir(week_path)
-            topics_with_path = [rf"{week}\{topic}" for topic in week_topics]
-            topics_uptil_current_week.extend(topics_with_path)
+            # Get all files in the folder
+            topics_uptil_current_week = []
+            for week in range(1, current_week + 1):
+                week_path = os.path.join(folder_path, str(week))
+                week_topics = os.listdir(week_path)
+                topics_with_path = [rf"{week}\{topic}" for topic in week_topics]
+                topics_uptil_current_week.extend(topics_with_path)
 
-        # topics = [
-        #     f
-        #     for f in os.listdir(folder_path)
-        #     if os.path.isfile(os.path.join(folder_path, f))
-        # ]
+            topics_uptil_current_week = sorted(
+                [os.path.splitext(f)[0] for f in topics_uptil_current_week]
+            )
 
-        # Remove file extensions if desired
-        topics_uptil_current_week = sorted(
-            [os.path.splitext(f)[0] for f in topics_uptil_current_week]
-        )
-
-        return jsonify({"topics": topics_uptil_current_week})
+            return jsonify({"topics": topics_uptil_current_week})
     except Exception as e:
         logging.error(f"Error in get_topics: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -200,6 +212,18 @@ def embed_documents(folder_path, vector_store_path):
     logging.debug(f"Vector store created")
 
 
+def embed_documents_mongodb(folder_name, folder_path, vector_store, week):
+    metadata = {
+        "course": folder_name,
+        "week": week,
+    }
+    logging.info(f"Embedding documents for course{folder_name}, week{week}")
+
+    # TODO store UUID for each document for fast delection
+    documents = rag.load_documents(folder_path, metadata=metadata)
+    aiTutorAgent.vector_store.add_documents(documents=documents)
+
+
 def load_vector_store(vector_store_path):
     logging.debug(f"Loading vector store from: {vector_store_path}")
     vector_store = rag.load_vector_store(vector_store_path)
@@ -213,9 +237,16 @@ def update_vector_store():
     folder_name = data.get("folder_name")
     folder_path = os.path.join("course_material", folder_name)
     vector_store_path = os.path.join("vector_store", folder_name)
-    # create vector store folder if it doesn't exist
-    if not os.path.exists(vector_store_path):
-        os.makedirs(vector_store_path)
+
+    if use_mongodb:
+        vector_store = aiTutorAgent.vector_store
+        # delete all documents for the course
+        rag.delete_by_course(folder_name)
+    else:
+        # create vector store folder if it doesn't exist
+        if not os.path.exists(vector_store_path):
+            os.makedirs(vector_store_path)
+
     try:
         for week in range(1, TOTAL_WEEKS + 1):
             # create folder for each week if it doesn't exist
@@ -235,7 +266,12 @@ def update_vector_store():
                 for file in os.listdir(vector_store_path_week):
                     os.remove(os.path.join(vector_store_path_week, file))
             # embed documents for each week
-            embed_documents(folder_path_week, vector_store_path_week)
+            if use_mongodb:
+                embed_documents_mongodb(
+                    folder_name, folder_path_week, vector_store, week
+                )
+            else:
+                embed_documents(folder_path_week, vector_store_path_week)
             logging.info(f"Course {folder_name} Week {week} vector store created")
 
         return jsonify({"message": f"Vector store for folder {folder_name} updated"})
@@ -260,48 +296,72 @@ def start_tutoring():
     if not os.path.exists(folder_path):
         return jsonify({"error": "Selected folder not found"}), 404
 
-    vector_store = None
     vector_store_paths = []
 
-    for week in range(1, int(current_week) + 1):
-        logging.info(f"Processing week {week}")
-        vector_store_path_week = os.path.join("vector_store", folder_name, str(week))
-        folder_path_week = os.path.join("course_material", folder_name, str(week))
-        if not os.path.exists(folder_path_week):
-            logging.error(f"Week {week} Folder not found: {folder_path_week}")
-            # create empty folder
-            os.makedirs(folder_path_week)
-            continue
-        # if the folder is empty, ignore that week
-        if not os.listdir(folder_path_week):
-            logging.info(f"Week {week} Folder is empty: {folder_path_week}")
-            continue
-        # check if the vector store exists, if not, embed the documents and create it
-        if not os.path.exists(vector_store_path_week):
-            embed_documents(folder_path_week, vector_store_path_week)
-            logging.info(
-                f"Vector store created for week {week}: {vector_store_path_week}"
-            )
-        vector_store_paths.append(vector_store_path_week)
+    if not use_mongodb:
+        vector_store = None
 
-    # merge all vector stores
-    if len(vector_store_paths) > 0:
-        logging.info(f"Merging vector stores for folder {folder_name}")
-        logging.info(f"Vector store paths: {vector_store_paths}")
-        vector_store = load_vector_store(vector_store_paths)
-    else:
-        logging.error(f"No vector stores found for folder {folder_name}")
-        return jsonify({"error": "No vector stores found for folder"}), 404
+        for week in range(1, int(current_week) + 1):
+            logging.info(f"Processing week {week}")
+            vector_store_path_week = os.path.join(
+                "vector_store", folder_name, str(week)
+            )
+            folder_path_week = os.path.join("course_material", folder_name, str(week))
+            if not os.path.exists(folder_path_week):
+                logging.error(f"Week {week} Folder not found: {folder_path_week}")
+                # create empty folder
+                os.makedirs(folder_path_week)
+                continue
+            # if the folder is empty, ignore that week
+            if not os.listdir(folder_path_week):
+                logging.info(f"Week {week} Folder is empty: {folder_path_week}")
+                continue
+            # check if the vector store exists, if not, embed the documents and create it
+            if not os.path.exists(vector_store_path_week):
+                embed_documents(folder_path_week, vector_store_path_week)
+                logging.info(
+                    f"Vector store created for week {week}: {vector_store_path_week}"
+                )
+            vector_store_paths.append(vector_store_path_week)
+
+        # merge all vector stores
+        if len(vector_store_paths) > 0:
+            logging.info(f"Merging vector stores for folder {folder_name}")
+            logging.info(f"Vector store paths: {vector_store_paths}")
+            vector_store = load_vector_store(vector_store_paths)
+        else:
+            logging.error(f"No vector stores found for folder {folder_name}")
+            return jsonify({"error": "No vector stores found for folder"}), 404
+
+        app.vector_stores[thread_id] = vector_store
+        update_vector_store_access_time(thread_id)  # Track access time
+
+    thread_id = str(uuid.uuid4())
+    thread_ids.append(thread_id)
+
+    weeks_selected_list = []
+
+    print(f"current_week: {current_week}")
 
     if topic != "ALL":
+        week_selected = topic.split("\\", 2)[0]
+        weeks_selected_list.append(int(week_selected))
         topic = topic.split("\\", 2)[1]
-        logging.info(f"Topic Selected: {topic}")
-        titles = rag.get_titles(topic)
     else:
-        titles = rag.get_titles()
+        topic = None
+        weeks_selected_list = [week for week in range(1, int(current_week) + 1)]
+
+    if use_mongodb:
+        titles = rag.get_titles_Mongodb(folder_name, weeks_selected_list)
+        logging.info(f"Week Selected: {weeks_selected_list}")
+    else:
+        titles = rag.get_titles(topic)
+        logging.info(f"Topic Selected: {topic}")
 
     initial_input = {
         "subject": folder_name,
+        "topic": topic,
+        "week_selected": weeks_selected_list,
         "titles": titles,
         "summary": "",
         "messages": [],
@@ -315,14 +375,10 @@ def start_tutoring():
         "task_solving_start_index": 0,
         "vector_store_paths": vector_store_paths,  # Store vector store paths in the state
         "current_week": current_week,  # Store current week for recovery purposes
+        "use_mongodb_vector_store": use_mongodb,
     }
 
-    thread_id = str(uuid.uuid4())
-    thread_ids.append(thread_id)
     thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
-
-    app.vector_stores[thread_id] = vector_store
-    update_vector_store_access_time(thread_id)  # Track access time
 
     response = aiTutorAgent.graph.invoke(initial_input, thread)
     response_json = messages_to_json(response["messages"])
@@ -362,68 +418,72 @@ def continue_tutoring():
     student_id = data.get("student_id")
     thread = {"configurable": {"thread_id": str(thread_id), "user_id": str(student_id)}}
 
-    # Update access time if this thread has a vector store
-    if thread_id in app.vector_stores:
-        update_vector_store_access_time(thread_id)
-    else:
-        # Recovery mechanism - try to recreate the vector store
-        try:
-            logging.info(
-                f"Vector store missing for thread {thread_id}. Attempting recovery..."
-            )
+    if not use_mongodb:
+        # Update access time if this thread has a vector store
+        if thread_id in app.vector_stores:
+            update_vector_store_access_time(thread_id)
 
-            # Get the session state
-            state = aiTutorAgent.graph.get_state(thread)
-
-            # Extract vector_store_paths and other necessary information from state
-            vector_store_paths = state.values.get("vector_store_paths", [])
-            folder_name = state.values.get("subject")
-            current_week = state.values.get("current_week")
-
-            logging.info(
-                f"Recovery details: folder={folder_name}, current_week={current_week}, paths={vector_store_paths}"
-            )
-
-            if vector_store_paths:
-                # Recreate the vector store from the saved paths
-                vector_store = load_vector_store(vector_store_paths)
-                app.vector_stores[thread_id] = vector_store
-                update_vector_store_access_time(thread_id)
+        else:
+            # Recovery mechanism - try to recreate the vector store
+            try:
                 logging.info(
-                    f"Successfully recovered vector store for thread {thread_id}"
+                    f"Vector store missing for thread {thread_id}. Attempting recovery..."
                 )
-            elif folder_name and current_week:
-                # If paths not available but we have folder name and week, try to rebuild paths
+
+                # Get the session state
+                state = aiTutorAgent.graph.get_state(thread)
+
+                # Extract vector_store_paths and other necessary information from state
+                vector_store_paths = state.values.get("vector_store_paths", [])
+                folder_name = state.values.get("subject")
+                current_week = state.values.get("current_week")
+
                 logging.info(
-                    f"No vector store paths available. Rebuilding from folder and week..."
+                    f"Recovery details: folder={folder_name}, current_week={current_week}, paths={vector_store_paths}"
                 )
-                rebuilt_vector_store_paths = []
 
-                for week in range(1, int(current_week) + 1):
-                    vector_store_path_week = os.path.join(
-                        "vector_store", folder_name, str(week)
-                    )
-                    if os.path.exists(vector_store_path_week):
-                        rebuilt_vector_store_paths.append(vector_store_path_week)
-
-                if rebuilt_vector_store_paths:
-                    vector_store = load_vector_store(rebuilt_vector_store_paths)
+                if vector_store_paths:
+                    # Recreate the vector store from the saved paths
+                    vector_store = load_vector_store(vector_store_paths)
                     app.vector_stores[thread_id] = vector_store
                     update_vector_store_access_time(thread_id)
-
-                    # Update the state with the rebuilt paths
-                    aiTutorAgent.graph.update_state(
-                        thread, {"vector_store_paths": rebuilt_vector_store_paths}
-                    )
                     logging.info(
-                        f"Successfully rebuilt vector store for thread {thread_id}"
+                        f"Successfully recovered vector store for thread {thread_id}"
                     )
+                elif folder_name and current_week:
+                    # If paths not available but we have folder name and week, try to rebuild paths
+                    logging.info(
+                        f"No vector store paths available. Rebuilding from folder and week..."
+                    )
+                    rebuilt_vector_store_paths = []
+
+                    for week in range(1, int(current_week) + 1):
+                        vector_store_path_week = os.path.join(
+                            "vector_store", folder_name, str(week)
+                        )
+                        if os.path.exists(vector_store_path_week):
+                            rebuilt_vector_store_paths.append(vector_store_path_week)
+
+                    if rebuilt_vector_store_paths:
+                        vector_store = load_vector_store(rebuilt_vector_store_paths)
+                        app.vector_stores[thread_id] = vector_store
+                        update_vector_store_access_time(thread_id)
+
+                        # Update the state with the rebuilt paths
+                        aiTutorAgent.graph.update_state(
+                            thread, {"vector_store_paths": rebuilt_vector_store_paths}
+                        )
+                        logging.info(
+                            f"Successfully rebuilt vector store for thread {thread_id}"
+                        )
+                    else:
+                        logging.error(
+                            f"Could not find any vector store paths for recovery"
+                        )
                 else:
-                    logging.error(f"Could not find any vector store paths for recovery")
-            else:
-                logging.error(f"Insufficient information for vector store recovery")
-        except Exception as e:
-            logging.error(f"Vector store recovery failed: {str(e)}")
+                    logging.error(f"Insufficient information for vector store recovery")
+            except Exception as e:
+                logging.error(f"Vector store recovery failed: {str(e)}")
 
     try:
         response = aiTutorAgent.graph.invoke(Command(resume=student_response), thread)
@@ -967,32 +1027,63 @@ def delete_item():
     try:
         data = request.json
         item_type = data.get("type")  # "course", "week", or "file"
+        print(f"item_type: {item_type}")
         path = data.get("path")
+        print(f"path for deletion: {path}")
+        if use_mongodb:
+            # delete course material from mongodb
+            if item_type == "course":
+                # get course name from path
+                course_name = path.split("/")[-1]
+                # delete course material from mongodb
+                result = rag.delete_by_course(course_name)
+            elif item_type == "week":
+                # get course name and week number from path
+                course_name, week_number = path.split("/")[-2:]
+                # delete course material from mongodb
+                result = rag.delete_by_week(course_name, int(week_number))
+            elif item_type == "file":
+                # get course name, week number, and filename from path
+                course_name, week_number, filename = path.split("/")[-3:]
+                print(f"course_name: {course_name}")
+                print(f"week_number: {week_number}")
+                print(f"filename: {filename}")
+                # delete course material from mongodb
+                result = rag.delete_by_file(course_name, int(week_number), filename)
 
-        if not item_type or not path:
-            return jsonify({"error": "Missing required parameters"}), 400
+            if not result:
+                return jsonify({"error": "Failed to delete material"}), 500
 
-        # Construct the full path
-        full_path = os.path.join("course_material", path)
-
-        # Check if the path exists
-        if not os.path.exists(full_path):
-            return jsonify({"error": f"{item_type.capitalize()} not found"}), 404
-
-        # Delete the item
-        if item_type == "course":
-            shutil.rmtree(full_path)  # Delete the entire course folder
-        elif item_type == "week":
-            shutil.rmtree(full_path)  # Delete the entire week folder
-        elif item_type == "file":
-            os.remove(full_path)  # Delete a single file
+            if result["acknowledged"]:
+                result["message"] = f"{item_type.capitalize()} deleted successfully"
+                return jsonify(result), 200
+            else:
+                return jsonify(result), 500
         else:
-            return jsonify({"error": "Invalid item type"}), 400
+            if not item_type or not path:
+                return jsonify({"error": "Missing required parameters"}), 400
 
-        return (
-            jsonify({"message": f"{item_type.capitalize()} deleted successfully"}),
-            200,
-        )
+            # Construct the full path
+            full_path = os.path.join("course_material", path)
+
+            # Check if the path exists
+            if not os.path.exists(full_path):
+                return jsonify({"error": f"{item_type.capitalize()} not found"}), 404
+
+            # Delete the item
+            if item_type == "course":
+                shutil.rmtree(full_path)  # Delete the entire course folder
+            elif item_type == "week":
+                shutil.rmtree(full_path)  # Delete the entire week folder
+            elif item_type == "file":
+                os.remove(full_path)  # Delete a single file
+            else:
+                return jsonify({"error": "Invalid item type"}), 400
+
+            return (
+                jsonify({"message": f"{item_type.capitalize()} deleted successfully"}),
+                200,
+            )
     except Exception as e:
         print(f"Error deleting {item_type}: {str(e)}")
         return jsonify({"error": f"Failed to delete {item_type}"}), 500
@@ -1003,16 +1094,41 @@ def upload_file():
     try:
         course_name = request.form.get("course_name")
         week_number = request.form.get("week_number")
+
+        print(f"course_name: {course_name}")
+        print(f"week_number: {week_number}")
         file = request.files.get("file")
 
         if not course_name or not week_number or not file:
             return jsonify({"error": "Missing required parameters"}), 400
 
-        # Save the file to the appropriate week folder
-        upload_path = os.path.join(
-            "course_material", course_name, week_number, file.filename
-        )
-        file.save(upload_path)
+        if use_mongodb:
+            # create temporary folder to save file
+            # Create a project-specific temp directory
+            project_temp_dir = "./temp"  # Relative to current working directory
+
+            # Create the directory if it doesn't exist
+            if not os.path.exists(project_temp_dir):
+                os.makedirs(project_temp_dir)
+            # Use this as the base for your temporary directories
+            with tempfile.TemporaryDirectory(dir=project_temp_dir) as temp_dir:
+                print(f"Created temp directory: {temp_dir}")
+                # save file to temp directory
+                file.save(os.path.join(temp_dir, file.filename))
+                # embed documents
+                embed_documents_mongodb(
+                    course_name,
+                    temp_dir,
+                    aiTutorAgent.vector_store,
+                    int(week_number),
+                )
+
+        else:
+            # Save the file to the appropriate week folder
+            upload_path = os.path.join(
+                "course_material", course_name, week_number, file.filename
+            )
+            file.save(upload_path)
 
         return jsonify({"message": "File uploaded successfully"}), 200
     except Exception as e:
@@ -1098,8 +1214,9 @@ def scheduled_cleanup():
 
 
 # Start the cleanup thread
-cleanup_thread = threading.Thread(target=scheduled_cleanup, daemon=True)
-cleanup_thread.start()
+if not use_mongodb:
+    cleanup_thread = threading.Thread(target=scheduled_cleanup, daemon=True)
+    cleanup_thread.start()
 
 # Run the Flask app
 if __name__ == "__main__":
