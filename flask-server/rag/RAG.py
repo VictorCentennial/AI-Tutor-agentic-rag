@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Type, Union, Dict, Any
 from langchain.embeddings.base import Embeddings
 from langchain.schema import Document
 from langchain.text_splitter import TextSplitter
@@ -12,12 +12,12 @@ import os
 class VectorStoreFactory(ABC):
     @abstractmethod
     def create_vector_store(
-        self, documents: List[Document], embeddings: Embeddings
+        self, documents: List[Document], embeddings: Embeddings, **kwargs
     ) -> VectorStore:
         pass
 
     @abstractmethod
-    def load_vector_store(self, folder_path: str) -> VectorStore:
+    def load_vector_store(self, *args, **kwargs) -> VectorStore:
         pass
 
 
@@ -34,6 +34,8 @@ class RAG:
         text_splitter: TextSplitter,
         document_loader_factory: DocumentLoaderFactory,
         vector_store_factory: VectorStoreFactory,
+        collection_name: Optional[str] = None,
+        total_weeks: int = 14,
     ):
         self.embeddings = embeddings
         self.text_splitter = text_splitter
@@ -41,31 +43,99 @@ class RAG:
         self.vector_store_factory = vector_store_factory
         self.documents: Optional[List[Document]] = None
         self.vector_store: Optional[VectorStore] = None
+        self.collection_name: Optional[str] = collection_name
+        self.total_weeks = total_weeks
 
-    def load_documents(self, folder_path: str) -> List[Document]:
+    def load_documents(
+        self, folder_path: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> List[Document]:
+        """
+        Load documents from a folder path with optional metadata.
+
+        Args:
+            folder_path: Path to the folder containing documents
+            metadata: Optional metadata to add to all documents (e.g., course name, week)
+
+        Returns:
+            List of loaded documents
+        """
         loader = self.document_loader_factory.create_loader(folder_path)
         self.documents = loader.load()
+
+        # Add metadata to documents if provided
+        if metadata and self.documents:
+            for doc in self.documents:
+                doc.metadata.update(metadata)
+
+        # Add first line as title in metadata
+        if self.documents:
+            for doc in self.documents:
+                if doc.page_content:
+                    # Extract first line and add as title in metadata
+                    first_line = doc.page_content.split("\n")[0].strip()
+                    if first_line:
+                        doc.metadata["title"] = first_line
+
         return self.documents
 
     def embed_documents(self) -> VectorStore:
+        """
+        Embed documents and store them in the vector store.
+
+        Args:
+            collection_name: Optional name for the MongoDB collection (e.g., course name)
+
+        Returns:
+            Vector store instance
+        """
         if not self.documents:
-            raise ValueError("No documents loaded. Call loaddocuments first.")
+            raise ValueError("No documents loaded. Call load_documents first.")
 
         chunks = self.text_splitter.split_documents(self.documents)
-        self.vector_store = self.vector_store_factory.create_vector_store(
-            chunks, self.embeddings
-        )
+
+        # For MongoDB, pass the collection name
+        if self.collection_name:
+            self.vector_store = self.vector_store_factory.create_vector_store(
+                chunks, self.embeddings, collection_name=self.collection_name
+            )
+        else:
+            self.vector_store = self.vector_store_factory.create_vector_store(
+                chunks, self.embeddings
+            )
+
         return self.vector_store
 
-    def load_vector_store(self, folder_path: str):
+    def load_vector_store(self):
+        """
+        Load a vector store from a collection.
+
+        Args:
+            collection_name: Name of the collection to load
+
+        Returns:
+            Loaded vector store
+        """
         self.vector_store = self.vector_store_factory.load_vector_store(
-            folder_path, self.embeddings
+            self.collection_name, self.embeddings
         )
         return self.vector_store
 
     def save_vector_store(self, folder_path: str):
-        self.vector_store.save_local(folder_path)
+        """
+        Save vector store locally (for FAISS compatibility).
 
+        This method is mainly kept for backward compatibility with FAISS.
+        MongoDB vector stores don't need to be saved locally as they're
+        already persisted in the database.
+
+        Args:
+            folder_path: Path to save the vector store
+        """
+        # Check if the vector store has a save_local method (FAISS)
+        if hasattr(self.vector_store, "save_local"):
+            self.vector_store.save_local(folder_path)
+
+    # for Local Vector Store
     def get_titles(self, file_name: Optional[str] = None) -> List[str]:
         """
         Get the titles of the documents in the vector store.
@@ -81,25 +151,6 @@ class RAG:
             List[str]: The titles of the documents in the vector store.
         """
 
-        # if self.documents:
-        #     # Get titles from documents
-        #     if file_name:
-        #         titles_set = set(
-        #             [
-        #                 doc.page_content.split("\n")[0]
-        #                 for doc in self.documents
-        #                 if os.path.splitext(doc.metadata.get("source", ""))[0].endswith(
-        #                     file_name
-        #                 )
-        #             ]
-        #         )
-        #     else:
-        #         titles_set = set(
-        #             [
-        #                 document.page_content.split("\n")[0]
-        #                 for document in self.documents
-        #             ]
-        #         )
         if self.vector_store:
             # Get titles from vector store
             # For Chroma:
@@ -141,10 +192,133 @@ class RAG:
 
         return list(titles_set)
 
-    def query_vector_store(self, query: str, k: int = 3) -> List[Document]:
+    def query_vector_store(
+        self,
+        query: str,
+        k: int = 3,
+        collection_name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> List[Document]:
+        """
+        Query the vector store for similar documents.
+
+        Args:
+            query: Query string
+            k: Number of results to return
+            collection_name: Optional collection name to query (if not using the current one)
+
+        Returns:
+            List of similar documents
+        """
+        # If collection name is provided and it's different from the current one,
+        # load that collection first
+        if collection_name and collection_name != self.current_collection:
+            self.load_vector_store(collection_name)
+
         if not self.vector_store:
             raise ValueError(
-                "Vector store not initialized. Call embed_documents first."
+                "Vector store not initialized. Call embed_documents or load_vector_store first."
             )
 
-        return self.vector_store.similarity_search(query, k=k)
+        return self.vector_store.similarity_search(query, k=k, **kwargs)
+
+    # function specific to MongoDB
+
+    def get_titles_Mongodb(self, course: str, weeks: list[int]) -> List[str]:
+        return self.vector_store_factory.get_titles_Mongodb(
+            course, weeks, self.collection_name
+        )
+
+    # Collections name is the course name
+    def list_collections(self) -> List[str]:
+        """
+        List all collections in the MongoDB database.
+
+        Returns:
+            List of collection names
+        """
+        if hasattr(self.vector_store_factory, "list_collections"):
+            return self.vector_store_factory.list_collections()
+        return []
+
+    def delete_collection(self, collection_name: str) -> dict:
+        """
+        Delete a collection from the database.
+
+        Args:
+            collection_name: Name of the collection to delete
+
+        Returns:
+            True if successful
+        """
+        return self.vector_store_factory.delete_collection(collection_name)
+
+    def delete_by_course(self, course_name: str) -> dict:
+        """
+        Delete all documents for a given course.
+
+        Args:
+            collection_name: Name of the collection to delete
+            course_name: Name of the course to delete
+
+        Returns:
+            True if successful
+        """
+        return self.vector_store_factory.delete_by_course(
+            self.collection_name, course_name
+        )
+
+    def delete_by_week(self, course_name: str, week: int) -> dict:
+        """
+        Delete all documents for a given course and week.
+        """
+        return self.vector_store_factory.delete_by_week(
+            self.collection_name, course_name, week
+        )
+
+    def delete_by_file(self, course_name: str, week: int, file_name: str) -> bool:
+        """
+        Delete a specific file from the database.
+        """
+        return self.vector_store_factory.delete_by_file(
+            self.collection_name, course_name, week, file_name
+        )
+
+    def get_courses(self) -> List[str]:
+        """
+        Get all courses from the database.
+        """
+        return self.vector_store_factory.get_courses(self.collection_name)
+
+    def get_course_material(self, course_name: str) -> Dict[str, List[str]]:
+        """
+        Get all course material for a given course in the form of a dictionary with week numbers as keys and lists of file names as values.
+        """
+        return self.vector_store_factory.get_course_material(
+            self.collection_name, course_name, self.total_weeks
+        )
+
+    def get_topics(self) -> List[str]:
+        """
+        Temporary return weeks as topics
+        TODO: Implement topics with user defined names
+        """
+        return [f"Week {i}" for i in range(1, self.total_weeks + 1)]
+
+    def delete_course_material(
+        self, course_name: str, week: int, file_name: str
+    ) -> bool:
+        """
+        Delete course material from the database.
+        """
+        return self.vector_store_factory.delete_course_material(
+            self.collection_name, course_name, week, file_name
+        )
+
+    def delete_course(self, course_name: str) -> bool:
+        """
+        Delete a course from the database.
+        """
+        return self.vector_store_factory.delete_course(
+            self.collection_name, course_name
+        )
