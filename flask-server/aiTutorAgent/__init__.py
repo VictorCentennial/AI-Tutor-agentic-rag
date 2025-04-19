@@ -9,6 +9,7 @@ from langgraph.checkpoint.mongodb import MongoDBSaver
 import atexit
 from pymongo.errors import ConnectionFailure
 import logging
+from rag import rag
 
 logging.getLogger("pymongo").setLevel(logging.INFO)
 
@@ -55,8 +56,19 @@ memory = MongoDBSaver(
 # memory = SqliteSaver(conn=sqlite3.connect(":memory:", check_same_thread=False))
 # memory = MemorySaver()
 
+vector_store = None
+# For mongodb vector store
+use_mongodb = os.environ.get("USE_MONGODB", "true").lower() == "true"
+
+if use_mongodb:
+    vector_store = rag.load_vector_store()
+
+
 aiTutorAgent = AiTutorAgent(
-    GOOGLE_MODEL_NAME=GOOGLE_MODEL_NAME, GOOGLE_API_KEY=GOOGLE_API_KEY, memory=memory
+    GOOGLE_MODEL_NAME=GOOGLE_MODEL_NAME,
+    GOOGLE_API_KEY=GOOGLE_API_KEY,
+    memory=memory,
+    vector_store=vector_store,
 )
 
 

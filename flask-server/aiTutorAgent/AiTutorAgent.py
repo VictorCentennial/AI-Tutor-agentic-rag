@@ -34,7 +34,7 @@ from rag import rag
 import logging
 
 from functools import wraps
-from typing import Callable, TypeVar, ParamSpec, Any
+from typing import Callable, TypeVar, ParamSpec, Any, Optional
 
 from flask import current_app
 from langchain_core.runnables.config import RunnableConfig
@@ -43,6 +43,7 @@ from langchain_core.runnables.config import RunnableConfig
 class AgentState(TypedDict):
     subject: str
     topic: str
+    week_selected: List[int]
     titles: List[str]
     summary: str
     messages: Annotated[list, add_messages]
@@ -54,6 +55,9 @@ class AgentState(TypedDict):
     task_breakdown: List[str]
     current_task_index: int  # index of the current task
     task_solving_start_index: int  # index of the first task that the student is solving
+    vector_store_paths: List[str]
+    current_week: int
+    use_mongodb_vector_store: bool
 
 
 class AiTutorAgent:
@@ -63,13 +67,17 @@ class AiTutorAgent:
     MAX_ANSWER_ATTEMPTS: int = 3
 
     def __init__(
-        self, GOOGLE_MODEL_NAME: str, GOOGLE_API_KEY: str, memory: MemorySaver
+        self,
+        GOOGLE_MODEL_NAME: str,
+        GOOGLE_API_KEY: str,
+        memory: MemorySaver,
+        vector_store: Optional[VectorStore] = None,
     ):
         self.llm = ChatGoogleGenerativeAI(
             model=GOOGLE_MODEL_NAME, google_api_key=GOOGLE_API_KEY
         )
         self.memory = memory
-        self.vector_store = None  # Store as instance variable as it cannot store a state, not serializable
+        self.vector_store = vector_store
 
         @property
         def vector_store(self):
@@ -942,7 +950,7 @@ class AiTutorAgent:
         while True:
             question = state["student_question"]
 
-            result_from_document_search = self.vector_search(question, thread_id)
+            result_from_document_search = self.vector_search(state, question, thread_id)
             response = self.llm.invoke(
                 self.QUESTION_ANSWERING_PROMPT.format(
                     question=question,
@@ -1217,7 +1225,7 @@ class AiTutorAgent:
         if thread_id is None:
             raise ValueError("No thread_id in current context")
 
-        related_course_content = self.vector_search(question, thread_id)
+        related_course_content = self.vector_search(state, question, thread_id)
         response = self.llm.invoke(
             self.QUESTION_BREAKDOWN_PROMPT.format(
                 question=question, related_course_content=related_course_content
@@ -1259,7 +1267,7 @@ class AiTutorAgent:
         if thread_id is None:
             raise ValueError("No thread_id in current context")
 
-        vector_search_results = self.vector_search(current_task, thread_id)
+        vector_search_results = self.vector_search(state, current_task, thread_id)
         previous_conversation = state["messages"][state["task_solving_start_index"] :]
         response = self.llm.invoke(
             self.SUBTASK_GUIDELINE_PROMPT.format(
@@ -1387,7 +1395,7 @@ class AiTutorAgent:
         if thread_id is None:
             raise ValueError("No thread_id in current context")
 
-        related_course_content = self.vector_search(current_task, thread_id)
+        related_course_content = self.vector_search(state, current_task, thread_id)
 
         response = self.llm.invoke(
             self.EXPLAIN_SUBTASK_ANSWER_PROMPT.format(
@@ -1458,7 +1466,9 @@ class AiTutorAgent:
             thread, {"duration_minutes": current_duration + extend_minutes}
         )
 
-    def vector_search(self, question: str, thread_id: str, k: int = 3) -> str:
+    def vector_search(
+        self, state: AgentState, question: str, thread_id: str, k: int = 3
+    ) -> str:
         """
         Search the vector store for documents related to the query.
 
@@ -1475,44 +1485,73 @@ class AiTutorAgent:
         """
 
         try:
-            if not hasattr(current_app, "vector_stores"):
-                raise ValueError(
-                    "Flask app does not have vector_stores dictionary initialized"
-                )
-
-            if thread_id not in current_app.vector_stores:
-                # Try to get thread state to provide more informative error
-                thread = {"configurable": {"thread_id": str(thread_id)}}
-                try:
-                    state = self.graph.get_state(thread)
-                    subject = state.values.get("subject", "unknown")
-                    current_week = state.values.get("current_week", "unknown")
-                    has_paths = "vector_store_paths" in state.values
-                    raise ValueError(
-                        f"No vector store found for thread {thread_id}. "
-                        f"Subject: {subject}, Week: {current_week}, "
-                        f"Has paths: {has_paths}. The session may have expired."
-                    )
-                except Exception as inner_e:
-                    # Fall back to simpler error if we can't get state info
-                    raise ValueError(
-                        f"No vector store found for thread {thread_id}. The session may have expired."
-                    )
-
-            vector_store = current_app.vector_stores[thread_id]
 
             # Perform the search
-            vector_search_results = vector_store.similarity_search(question, k=k)
-
-            # Clean up the results before joining
-            vector_search_results_str = (
-                "\n\n".join(
-                    " ".join(doc.page_content.split())  # Clean up extra spaces
-                    for doc in vector_search_results
+            if state["use_mongodb_vector_store"]:
+                vector_search_results = self.vector_store.similarity_search_with_score(
+                    question,
+                    k=k,
+                    pre_filter={
+                        "course": {"$eq": state["subject"]},
+                        "week": {"$in": state["week_selected"]},
+                    },
                 )
-                if vector_search_results
-                else "No related content"
-            )
+                print(vector_search_results)
+                # Sort by score (highest first)
+                sorted_results = sorted(
+                    vector_search_results, key=lambda x: x[1], reverse=True
+                )
+
+                # Join with score and metadata
+                vector_search_results_str = "\n\n".join(
+                    [
+                        f"**{doc.metadata['title']}** (Score: {score:.4f})\n"
+                        f"Course: {doc.metadata.get('course', 'Unknown')}, "
+                        f"Week: {doc.metadata.get('week', 'Unknown')}\n"
+                        f"{doc.page_content}"
+                        for doc, score in sorted_results
+                    ]
+                )
+            else:
+                if not hasattr(current_app, "vector_stores"):
+                    raise ValueError(
+                        "Flask app does not have vector_stores dictionary initialized"
+                    )
+
+                if thread_id not in current_app.vector_stores:
+                    # Try to get thread state to provide more informative error
+                    thread = {"configurable": {"thread_id": str(thread_id)}}
+                    state = self.graph.get_state(thread)
+
+                    try:
+                        subject = state.values.get("subject", "unknown")
+                        current_week = state.values.get("current_week", "unknown")
+                        has_paths = "vector_store_paths" in state.values
+                        raise ValueError(
+                            f"No vector store found for thread {thread_id}. "
+                            f"Subject: {subject}, Week: {current_week}, "
+                            f"Has paths: {has_paths}. The session may have expired."
+                        )
+                    except Exception as inner_e:
+                        # Fall back to simpler error if we can't get state info
+                        raise ValueError(
+                            f"No vector store found for thread {thread_id}. The session may have expired."
+                        )
+
+                local_vector_store = current_app.vector_stores[thread_id]
+                vector_search_results = local_vector_store.similarity_search(
+                    question, k=k
+                )
+
+                # Clean up the results before joining
+                vector_search_results_str = (
+                    "\n\n".join(
+                        " ".join(doc.page_content.split())  # Clean up extra spaces
+                        for doc in vector_search_results
+                    )
+                    if vector_search_results
+                    else "No related content"
+                )
 
             logging.info(f"vector_search_results_str: {vector_search_results_str}")
             return vector_search_results_str
