@@ -69,7 +69,7 @@ pyasn1-modules==0.4.2
 pydantic==2.11.0
 pydantic-core==2.33.0
 pydantic-settings==2.8.1
-pymongo==4.11.3
+pymongo>=4.5.0
 pyparsing==3.2.3
 pypdf==5.4.0
 python-dateutil==2.9.0.post0
@@ -94,3 +94,4 @@ xlsxwriter==3.2.2
 xxhash==3.5.0
 yarl==1.18.3
 zstandard==0.23.0
+langchain-mongodb>=0.1.1

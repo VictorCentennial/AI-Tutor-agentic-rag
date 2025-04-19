@@ -367,6 +367,7 @@ dependencies = [
     { name = "langchain" },
     { name = "langchain-community" },
     { name = "langchain-google-genai" },
+    { name = "langchain-mongodb" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-mongodb" },
     { name = "langsmith" },
@@ -385,6 +386,7 @@ requires-dist = [
     { name = "langchain", specifier = ">=0.3.21" },
     { name = "langchain-community", specifier = ">=0.3.20" },
     { name = "langchain-google-genai", specifier = ">=2.1.2" },
+    { name = "langchain-mongodb", specifier = ">=0.6.0" },
     { name = "langgraph", specifier = ">=0.3.21" },
     { name = "langgraph-checkpoint-mongodb", specifier = ">=0.1.2" },
     { name = "langsmith", specifier = ">=0.3.19" },
@@ -820,6 +822,23 @@ wheels = [
 ]
 
 [[package]]
+name = "langchain-mongodb"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain" },
+    { name = "langchain-core" },
+    { name = "langchain-text-splitters" },
+    { name = "lark" },
+    { name = "numpy" },
+    { name = "pymongo" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/16/de/55b236bfc390a7ff997d8d99d624a7aa0b6833ed4f3f3c25dfa0efaafc66/langchain_mongodb-0.6.0.tar.gz", hash = "sha256:1c9bd59ac45131b5d435f6bc8aeccce6eaca39d260134ad64fdac1951fbf3d32", size = 225949 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/31/03/b972fae384fea992f11b8597b9b87eaa05f134e2a827f436236c32d9f3ec/langchain_mongodb-0.6.0-py3-none-any.whl", hash = "sha256:1f86d24e6750326876993d598649d3350b756c217ecc220b306fa9a0e3e64ec8", size = 58987 },
+]
+
+[[package]]
 name = "langchain-text-splitters"
 version = "0.3.7"
 source = { registry = "https://pypi.org/simple" }
@@ -916,6 +935,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7c/03/22d2235d16694c4751957f8c247e0734963be407c88a0ed2d8b9b1a3365b/langsmith-0.3.19.tar.gz", hash = "sha256:0133676689b5e1b879ed05a18e18570daf0dd05e0cefc397342656a58ebecbc5", size = 337201 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/af/3e2a2498bd46e2c022e7af23c0db67ab2400be18caeb398c758d6aa1ce45/langsmith-0.3.19-py3-none-any.whl", hash = "sha256:a306962ab53562c4094192f1da964309b48aac7898f82d1d421c3fb9c3f29367", size = 351860 },
+]
+
+[[package]]
+name = "lark"
+version = "1.2.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/60/bc7622aefb2aee1c0b4ba23c1446d3e30225c8770b38d7aedbfb65ca9d5a/lark-1.2.2.tar.gz", hash = "sha256:ca807d0162cd16cef15a8feecb862d7319e7a09bdb13aef927968e45040fed80", size = 252132 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2d/00/d90b10b962b4277f5e64a78b6609968859ff86889f5b898c1a778c06ec00/lark-1.2.2-py3-none-any.whl", hash = "sha256:c2276486b02f0f1b90be155f2c8ba4a8e194d42775786db622faccd652d8e80c", size = 111036 },
 ]
 
 [[package]]
