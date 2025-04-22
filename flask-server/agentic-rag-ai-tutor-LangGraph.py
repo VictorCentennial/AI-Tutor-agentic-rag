@@ -1,3 +1,7 @@
+from utils.logging_config import setup_logging
+
+logger = setup_logging()
+
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask import send_from_directory
@@ -29,19 +33,13 @@ from config import TOTAL_WEEKS
 
 load_dotenv()
 
+
 use_mongodb = os.environ.get("USE_MONGODB", "true").lower() == "true"
+
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
-
-# Set up logging for debugging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-
 
 thread_ids = []
 
@@ -212,16 +210,18 @@ def embed_documents(folder_path, vector_store_path):
     logging.debug(f"Vector store created")
 
 
-def embed_documents_mongodb(folder_name, folder_path, vector_store, week):
-    metadata = {
-        "course": folder_name,
-        "week": week,
-    }
-    logging.info(f"Embedding documents for course{folder_name}, week{week}")
+def embed_documents_mongodb(folder_name, folder_path, week):
+    rag.load_from_folder_path_to_mongodb_vector_store(folder_name, week, folder_path)
 
-    # TODO store UUID for each document for fast delection
-    documents = rag.load_documents(folder_path, metadata=metadata)
-    aiTutorAgent.vector_store.add_documents(documents=documents)
+    # metadata = {
+    #     "course": folder_name,
+    #     "week": week,
+    # }
+    # logging.info(f"Embedding documents for course{folder_name}, week{week}")
+
+    # # TODO store UUID for each document for fast delection
+    # documents = rag.load_documents(folder_path, metadata=metadata)
+    # aiTutorAgent.vector_store.add_documents(documents=documents)
 
 
 def load_vector_store(vector_store_path):
@@ -267,9 +267,7 @@ def update_vector_store():
                     os.remove(os.path.join(vector_store_path_week, file))
             # embed documents for each week
             if use_mongodb:
-                embed_documents_mongodb(
-                    folder_name, folder_path_week, vector_store, week
-                )
+                embed_documents_mongodb(folder_name, folder_path_week, week)
             else:
                 embed_documents(folder_path_week, vector_store_path_week)
             logging.info(f"Course {folder_name} Week {week} vector store created")
@@ -288,18 +286,25 @@ def start_tutoring():
     topic = data.get("topic")
     current_week = data.get("current_week")
     student_id = data.get("student_id")
+
+    logger.info(
+        f"Starting tutoring for {folder_name} with topic {topic} and current week {current_week}"
+    )
+
     if not folder_name:
         return jsonify({"error": "No folder selected"}), 400
 
-    folder_path = os.path.join("course_material", folder_name)
-
-    if not os.path.exists(folder_path):
-        return jsonify({"error": "Selected folder not found"}), 404
-
     vector_store_paths = []
+
+    thread_id = str(uuid.uuid4())
 
     if not use_mongodb:
         vector_store = None
+
+        folder_path = os.path.join("course_material", folder_name)
+
+        if not os.path.exists(folder_path):
+            return jsonify({"error": "Selected folder not found"}), 404
 
         for week in range(1, int(current_week) + 1):
             logging.info(f"Processing week {week}")
@@ -336,7 +341,6 @@ def start_tutoring():
         app.vector_stores[thread_id] = vector_store
         update_vector_store_access_time(thread_id)  # Track access time
 
-    thread_id = str(uuid.uuid4())
     thread_ids.append(thread_id)
 
     weeks_selected_list = []
@@ -346,7 +350,10 @@ def start_tutoring():
     if topic != "ALL":
         week_selected = topic.split("\\", 2)[0]
         weeks_selected_list.append(int(week_selected))
-        topic = topic.split("\\", 2)[1]
+        if len(topic.split("\\", 2)) == 2:
+            topic = topic.split("\\", 2)[1]
+        else:
+            topic = None
     else:
         topic = None
         weeks_selected_list = [week for week in range(1, int(current_week) + 1)]
@@ -806,17 +813,21 @@ def get_statistics():
 @app.route("/get-courses", methods=["GET"])
 def get_courses():
     try:
-        course_material_path = "course_material"
-        if not os.path.exists(course_material_path):
-            return jsonify({"error": "Course material directory not found"}), 404
+        if use_mongodb:
+            courses = rag.get_courses_from_structure()
+            return jsonify({"courses": courses})
+        else:
+            course_material_path = "course_material"
+            if not os.path.exists(course_material_path):
+                return jsonify({"error": "Course material directory not found"}), 404
 
-        # Get all folders (courses) in the course_material directory
-        courses = [
-            f
-            for f in os.listdir(course_material_path)
-            if os.path.isdir(os.path.join(course_material_path, f))
-        ]
-        return jsonify({"courses": courses})
+            # Get all folders (courses) in the course_material directory
+            courses = [
+                f
+                for f in os.listdir(course_material_path)
+                if os.path.isdir(os.path.join(course_material_path, f))
+            ]
+            return jsonify({"courses": courses})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -825,27 +836,44 @@ def get_courses():
 @app.route("/get-course-material", methods=["GET"])
 def get_course_material():
     try:
-        course_name = request.args.get("course")
-        if not course_name:
-            return jsonify({"error": "No course specified"}), 400
-
-        course_path = os.path.join(COURSE_MATERIAL_DIR, course_name)
-        if not os.path.exists(course_path):
-            return jsonify({"error": "Course not found"}), 404
-
-        material = {}
-
-        for week_folder in os.listdir(course_path):
-            week_path = os.path.join(course_path, week_folder)
-            if os.path.isdir(week_path) and week_folder.isdigit():
-                files = os.listdir(week_path)
-                file_urls = [
-                    f"/serve-file/{course_name}/{week_folder}/{file}"  # Updated URL pattern
-                    for file in files
+        if use_mongodb:
+            course_name = request.args.get("course")
+            if not course_name:
+                return jsonify({"error": "No course specified"}), 400
+            material_from_structure = rag.get_course_material_from_structure(
+                course_name
+            )
+            material = {}
+            for week, info in material_from_structure.items():
+                # info is the dict for that week
+                file_list = info.get("files", [])  # safely get the list (or empty list)
+                material[week] = [
+                    f"/serve-file/{course_name}/{week}/{f['filename']}"
+                    for f in file_list
                 ]
-                material[week_folder] = file_urls
+            return jsonify({"material": material})
+        else:
+            course_name = request.args.get("course")
+            if not course_name:
+                return jsonify({"error": "No course specified"}), 400
 
-        return jsonify({"material": material})
+            course_path = os.path.join(COURSE_MATERIAL_DIR, course_name)
+            if not os.path.exists(course_path):
+                return jsonify({"error": "Course not found"}), 404
+
+            material = {}
+
+            for week_folder in os.listdir(course_path):
+                week_path = os.path.join(course_path, week_folder)
+                if os.path.isdir(week_path) and week_folder.isdigit():
+                    files = os.listdir(week_path)
+                    file_urls = [
+                        f"/serve-file/{course_name}/{week_folder}/{file}"  # Updated URL pattern
+                        for file in files
+                    ]
+                    material[week_folder] = file_urls
+
+            return jsonify({"material": material})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -950,20 +978,30 @@ def add_course():
         # Replace spaces in course name with underscores
         formatted_course_name = course_name.replace(" ", "_")
         folder_name = f"{course_code}_{formatted_course_name}"
-        course_path = os.path.join("course_material", folder_name)
 
-        # Create the main course folder
-        os.makedirs(course_path, exist_ok=True)
+        if use_mongodb:
+            result = rag.add_course_to_structure(folder_name)
+            if result["success"]:
+                return jsonify({"message": result["message"]}), 200
+            else:
+                return jsonify({"error": result["message"]}), 400
+        else:
+            course_path = os.path.join("course_material", folder_name)
 
-        # Create 14 subfolders for weekly content
-        for week in range(1, 15):
-            week_folder = os.path.join(course_path, str(week))
-            os.makedirs(week_folder, exist_ok=True)
+            # Create the main course folder
+            os.makedirs(course_path, exist_ok=True)
 
-        return (
-            jsonify({"message": "Course folder and subfolders created successfully"}),
-            200,
-        )
+            # Create 14 subfolders for weekly content
+            for week in range(1, 15):
+                week_folder = os.path.join(course_path, str(week))
+                os.makedirs(week_folder, exist_ok=True)
+
+            return (
+                jsonify(
+                    {"message": "Course folder and subfolders created successfully"}
+                ),
+                200,
+            )
     except Exception as e:
         # Log the error for debugging
         print(f"Error in /api/add-course: {str(e)}")
@@ -1119,7 +1157,6 @@ def upload_file():
                 embed_documents_mongodb(
                     course_name,
                     temp_dir,
-                    aiTutorAgent.vector_store,
                     int(week_number),
                 )
 
