@@ -144,6 +144,7 @@ class AiTutorAgent:
 
         self.GREETING_PROMPT = """
             You are an AI Tutor. You are given a subject and a topic with its content summary.
+            If the topics is not provided, then ignore topics and provide possible topics based on the subject.
 
             **Instructions**:
 
