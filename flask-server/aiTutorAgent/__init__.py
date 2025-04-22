@@ -61,7 +61,8 @@ vector_store = None
 use_mongodb = os.environ.get("USE_MONGODB", "true").lower() == "true"
 
 if use_mongodb:
-    vector_store = rag.load_vector_store()
+    # vector store is already loaded in rag instance
+    vector_store = rag.vector_store
 
 
 aiTutorAgent = AiTutorAgent(
