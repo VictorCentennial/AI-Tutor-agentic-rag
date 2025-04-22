@@ -9,6 +9,11 @@ from pymongo import MongoClient
 import os
 from bson import ObjectId
 import re
+from rag.CourseStructureStore import CourseStructureStore, FileInfo
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class MongoDBVectorStoreFactory(VectorStoreFactory):
@@ -32,6 +37,9 @@ class MongoDBVectorStoreFactory(VectorStoreFactory):
 
         self.db_name = db_name
         self.client = MongoClient(self.connection_string)
+        self.course_structure_store = CourseStructureStore(
+            self.connection_string, self.db_name
+        )
 
     def create_vector_store(
         self,
@@ -50,16 +58,7 @@ class MongoDBVectorStoreFactory(VectorStoreFactory):
         Returns:
             MongoDB Atlas Vector Search instance
         """
-        # Extract metadata to determine collection name if needed
 
-        # if (
-        #     documents
-        #     and hasattr(documents[0], "metadata")
-        #     and "course" in documents[0].metadata
-        # ):
-        #     # Use the course name as collection name if available
-        #     course_name = documents[0].metadata["course"]
-        #     # Clean the collection name (remove special characters)
         collection_name = "".join(e for e in collection_name if e.isalnum() or e == "_")
 
         # Get the database and collection
@@ -162,6 +161,7 @@ class MongoDBVectorStoreFactory(VectorStoreFactory):
         db = self.client[self.db_name]
         collection = db[collection_name]
         result = collection.delete_many({"course": course_name})
+        self.course_structure_store.delete_course_from_structure(course_name)
         return {
             "acknowledged": result.acknowledged,
             "deleted_count": result.deleted_count,
@@ -182,6 +182,9 @@ class MongoDBVectorStoreFactory(VectorStoreFactory):
         db = self.client[self.db_name]
         collection = db[collection_name]
         result = collection.delete_many({"course": course_name, "week": week})
+        self.course_structure_store.remove_week_material_from_structure(
+            course_name, week
+        )
         return {
             "acknowledged": result.acknowledged,
             "deleted_count": result.deleted_count,
@@ -207,6 +210,9 @@ class MongoDBVectorStoreFactory(VectorStoreFactory):
             collection = db[collection_name]
             result = collection.delete_many(
                 {"course": course_name, "week": week, "filename": file_name}
+            )
+            self.course_structure_store.remove_file_from_structure(
+                course_name, week, file_name
             )
             return {
                 "acknowledged": result.acknowledged,
@@ -286,6 +292,9 @@ class MongoDBVectorStoreFactory(VectorStoreFactory):
         collection.delete_many(
             {"course": course_name, "week": week, "filename": file_name}
         )
+        self.course_structure_store.remove_file_from_structure(
+            course_name, week, file_name
+        )
         return True
 
     def delete_course(self, collection_name: str, course_name: str) -> bool:
@@ -295,7 +304,34 @@ class MongoDBVectorStoreFactory(VectorStoreFactory):
         db = self.client[self.db_name]
         collection = db[collection_name]
         collection.delete_many({"course": course_name})
+        self.course_structure_store.delete_course_from_structure(course_name)
         return True
+
+    def load_from_folder_path_to_mongodb_vector_store(
+        self,
+        vector_store: VectorStore,
+        course_name: str,
+        week: int,
+        documents: List[Document],
+    ) -> bool:
+        """
+        Load files from a folder path to the vector store.
+        """
+
+        logger.info(f"Adding documents to vector store")
+        vector_store.add_documents(documents)
+
+        logger.info(f"Extracting file info from documents")
+        file_infos = self._extract_file_info_from_documents(documents)
+        self.course_structure_store.add_week_material_to_structure(
+            course_name, week, file_infos
+        )
+
+        return True
+
+    def get_course_structure_store(self):
+        """Get the course structure store instance"""
+        return self.course_structure_store
 
     # Add this method to your class
     def _sanitize_index_name(self, name: str) -> str:
@@ -317,3 +353,41 @@ class MongoDBVectorStoreFactory(VectorStoreFactory):
             sanitized = sanitized[:7]
 
         return sanitized
+
+    def _extract_file_info_from_documents(self, documents: List) -> List[FileInfo]:
+        """
+        Extract unique FileInfo objects from a list of documents.
+
+        Args:
+            documents: List of Document objects from langchain
+
+        Returns:
+            List of unique FileInfo objects
+        """
+        unique_files = {}  # Dictionary to track unique files by filename
+
+        for doc in documents:
+            if not hasattr(doc, "metadata"):
+                continue
+
+            metadata = doc.metadata
+            filename = metadata.get("filename")
+
+            if not filename:
+                continue
+
+            # Get last_modified from metadata or use empty string
+            last_modified = metadata.get("last_modified", "")
+
+            # Create a FileInfo object and store by filename to ensure uniqueness
+            file_info = FileInfo(filename=filename, last_modified=last_modified)
+
+            # Only keep the most recent version if duplicates exist
+            if (
+                filename not in unique_files
+                or last_modified > unique_files[filename].last_modified
+            ):
+                unique_files[filename] = file_info
+
+        # Return the list of unique FileInfo objects
+        return list(unique_files.values())

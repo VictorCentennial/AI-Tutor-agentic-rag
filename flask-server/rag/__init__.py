@@ -13,6 +13,7 @@ from rag.RAG import RAG
 import os
 from config import TOTAL_WEEKS
 
+
 load_dotenv()
 
 # Initialize dependencies
@@ -35,6 +36,7 @@ if use_mongodb:
     vector_store_factory = MongoDBVectorStoreFactory(
         connection_string=mongodb_uri, db_name=VectorStoreDatabaseName
     )
+
 else:
     # Use FAISS vector store (local)
     vector_store_factory = FAISSVectorStoreFactory()

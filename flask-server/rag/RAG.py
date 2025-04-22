@@ -8,6 +8,10 @@ from langchain_community.document_loaders.base import BaseLoader
 from langchain.vectorstores.base import VectorStore
 import os
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class VectorStoreFactory(ABC):
     @abstractmethod
@@ -36,6 +40,7 @@ class RAG:
         vector_store_factory: VectorStoreFactory,
         collection_name: Optional[str] = None,
         total_weeks: int = 14,
+        auto_sync_structure: bool = True,
     ):
         self.embeddings = embeddings
         self.text_splitter = text_splitter
@@ -45,6 +50,24 @@ class RAG:
         self.vector_store: Optional[VectorStore] = None
         self.collection_name: Optional[str] = collection_name
         self.total_weeks = total_weeks
+
+        # First load the vector store if use mongodb
+        if collection_name:
+            self.vector_store = self.load_vector_store()
+
+        # Then sync the course structure if auto_sync is enabled
+        if auto_sync_structure and hasattr(
+            self.vector_store_factory, "get_course_structure_store"
+        ):
+            try:
+                sync_results = self.sync_course_structure()
+                print(
+                    f"Course structure synced: added {sync_results['courses_added']} courses, "
+                    f"updated {sync_results['weeks_updated']} weeks, "
+                    f"added {sync_results['files_added']} files"
+                )
+            except Exception as e:
+                print(f"Warning: Failed to sync course structure: {str(e)}")
 
     def load_documents(
         self, folder_path: str, metadata: Optional[Dict[str, Any]] = None
@@ -71,10 +94,24 @@ class RAG:
         if self.documents:
             for doc in self.documents:
                 if doc.page_content:
-                    # Extract first line and add as title in metadata
-                    first_line = doc.page_content.split("\n")[0].strip()
-                    if first_line:
-                        doc.metadata["title"] = first_line
+                    # # Extract first line and add as title in metadata
+                    # first_line = doc.page_content.split("\n")[0].strip()
+                    # if first_line:
+                    #     doc.metadata["title"] = first_line
+                    # Split content into lines
+                    lines = doc.page_content.split("\n")
+                    title = lines[0].strip()
+
+                    # If title is too short, look for a longer one in the next lines
+                    line_index = 1
+                    while len(title) < 5 and line_index < len(lines):
+                        next_line = lines[line_index].strip()
+                        if next_line and len(next_line) >= 5:
+                            title = next_line
+                            break
+                        line_index += 1
+
+                    doc.metadata["title"] = title
 
         return self.documents
 
@@ -184,7 +221,9 @@ class RAG:
                         ]
                     )
                 else:
+                    # for mongodb
                     titles_set = set([doc.page_content.split("\n")[0] for doc in docs])
+
             else:
                 raise ValueError("Unsupported vector store type")
         else:
@@ -286,9 +325,33 @@ class RAG:
 
     def get_courses(self) -> List[str]:
         """
-        Get all courses from the database.
+        Get all courses from the database. Only for courses with documents in the vector store.
         """
         return self.vector_store_factory.get_courses(self.collection_name)
+
+    def get_courses_from_structure(self) -> List[str]:
+        """
+        Get all courses from the course structure store.
+        """
+        if hasattr(self.vector_store_factory, "get_course_structure_store"):
+            structure_store = self.vector_store_factory.get_course_structure_store()
+            return structure_store.get_courses_from_structure()
+        else:
+            print("Vector store factory does not have a course structure store")
+            return []
+
+    def get_course_material_from_structure(
+        self, course_name: str
+    ) -> Dict[str, str | List[str] | Dict[str, str | List[str]]]:
+        """
+        Get all course material for a given course from the course structure store.
+        """
+        if hasattr(self.vector_store_factory, "get_course_structure_store"):
+            structure_store = self.vector_store_factory.get_course_structure_store()
+            return structure_store.get_course_material_from_structure(course_name)
+        else:
+            print("Vector store factory does not have a course structure store")
+            return {}
 
     def get_course_material(self, course_name: str) -> Dict[str, List[str]]:
         """
@@ -298,12 +361,38 @@ class RAG:
             self.collection_name, course_name, self.total_weeks
         )
 
+    def add_course_to_structure(self, course_name: str) -> Dict[str, Any]:
+        """
+        Add a course to the course structure store.
+        """
+        if hasattr(self.vector_store_factory, "get_course_structure_store"):
+            structure_store = self.vector_store_factory.get_course_structure_store()
+            return structure_store.add_course_to_structure(course_name)
+        else:
+            print("Vector store factory does not have a course structure store")
+            return {
+                "message": "Vector store factory does not have a course structure store"
+            }
+
+    def set_week_topic(self, course_name: str, week: int, topic_name: str) -> bool:
+        """
+        Set the topic name for a specific week in the course structure store.
+        """
+        if hasattr(self.vector_store_factory, "get_course_structure_store"):
+            structure_store = self.vector_store_factory.get_course_structure_store()
+            return structure_store.set_week_topic(course_name, week, topic_name)
+        else:
+            print("Vector store factory does not have a course structure store")
+            return {
+                "message": "Vector store factory does not have a course structure store"
+            }
+
     def get_topics(self) -> List[str]:
         """
         Temporary return weeks as topics
         TODO: Implement topics with user defined names
         """
-        return [f"Week {i}" for i in range(1, self.total_weeks + 1)]
+        return [f"{i}" for i in range(1, self.total_weeks + 1)]
 
     def delete_course_material(
         self, course_name: str, week: int, file_name: str
@@ -322,3 +411,43 @@ class RAG:
         return self.vector_store_factory.delete_course(
             self.collection_name, course_name
         )
+
+    def load_from_folder_path_to_mongodb_vector_store(
+        self, course_name: str, week: int, folder_path: str
+    ) -> bool:
+        """
+        Load files from a folder path to the vector store.
+        """
+        metadata = {
+            "course": course_name,
+            "week": week,
+        }
+
+        logger.info(f"Loading documents from {folder_path} to MongoDB vector store")
+
+        documents = self.load_documents(folder_path, metadata)
+
+        logger.info(f"Documents loaded")
+
+        return self.vector_store_factory.load_from_folder_path_to_mongodb_vector_store(
+            self.vector_store, course_name, week, documents
+        )
+
+    def sync_course_structure(self) -> Dict[str, Any]:
+        """
+        Synchronize the course structure store with the current vector store.
+
+        Returns:
+            Dictionary with sync results
+        """
+        # Check if we have a MongoDB vector store factory with a course structure store
+        if hasattr(self.vector_store_factory, "get_course_structure_store"):
+            structure_store = self.vector_store_factory.get_course_structure_store()
+            return structure_store.sync_with_rag(self)
+        else:
+            return {
+                "error": "Vector store factory does not have a course structure store",
+                "courses_added": 0,
+                "weeks_updated": 0,
+                "files_added": 0,
+            }
