@@ -39,7 +39,8 @@ function TutorStart({ onStartTutoring, isLoading }) {
   const debugMode = Boolean(config.DEBUG_MODE);
 
 
-  const weekAutoSet = !debugMode && semesterStartDate && calculatedCurrentWeek < totalWeeks;
+  const weekAutoSet = !debugMode && semesterStartDate;// && calculatedCurrentWeek < totalWeeks;
+
 
   useEffect(() => {
     const fetchFolders = async () => {
@@ -49,7 +50,11 @@ function TutorStart({ onStartTutoring, isLoading }) {
         setFolders(data.folders);
         setSelectedFolder("");
         if (weekAutoSet) {
-          setCurrentWeek(calculatedCurrentWeek);
+          if (calculatedCurrentWeek > totalWeeks) {
+            setCurrentWeek(totalWeeks);
+          } else {
+            setCurrentWeek(calculatedCurrentWeek);
+          }
         }
       } catch (error) {
         console.error('Error fetching folders:', error);
@@ -59,7 +64,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
     };
 
     fetchFolders();
-  }, [calculatedCurrentWeek, weekAutoSet]);
+  }, [calculatedCurrentWeek, weekAutoSet, totalWeeks]);
 
   useEffect(() => {
     const fetchTopics = async () => {
@@ -102,7 +107,11 @@ function TutorStart({ onStartTutoring, isLoading }) {
 
   const topicDisplay = (topic) => {
     const topic_split = topic.split("\\", 2);
-    return `Week ${topic_split[0]} - ${topic_split[1]}`
+    if (topic_split.length === 1) {
+      return `Week ${topic_split[0]}`
+    } else {
+      return `Week ${topic_split[0]} - ${topic_split[1]}`
+    }
   }
 
   // Function to fetch conversation history
@@ -198,7 +207,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
                 </Col>
                 <Col>
                   <Form.Group className="mb-3">
-                    <Form.Label>Select Topic (Optional)</Form.Label>
+                    <Form.Label>Select Week (Optional)</Form.Label>
                     <Form.Select
                       value={selectedTopic}
                       onChange={(e) => setSelectedTopic(e.target.value)}
@@ -221,7 +230,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
                 </Col>
               </Row>
 
-              <div className="text-center mb-3">
+              {/* <div className="text-center mb-3">
                 <Button
                   variant="dark"
                   onClick={handleUpdateVectorStore}
@@ -244,7 +253,7 @@ function TutorStart({ onStartTutoring, isLoading }) {
                     'Update Course Material'
                   )}
                 </Button>
-              </div>
+              </div> */}
 
               <Form.Group className="mb-3">
                 <Form.Label>Session Duration (minutes)</Form.Label>
