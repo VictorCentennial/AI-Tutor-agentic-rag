@@ -5,6 +5,8 @@ venv/
 #env files
 .env
 
+examples/*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
