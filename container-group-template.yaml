@@ -3,64 +3,75 @@ location: eastus
 name: ai-tutor-containers
 properties:
   containers:
-  # Flask server container
-  - name: flask-server
-    properties:
-      image: aitutoracr.azurecr.io/flask-server:latest
-      resources:
-        requests:
-          cpu: 1.0
-          memoryInGB: 1.5
-      ports:
-      - port: 5001
-      environmentVariables:
-      - name: FLASK_HOST
-        value: "0.0.0.0"
-      - name: FLASK_PORT
-        value: "5001"
-      - name: FLASK_DEBUG
-        value: "True"
-      # For sensitive environment variables, use secureValue
-      - name: GOOGLE_API_KEY
-        secureValue: "${GOOGLE_API_KEY}"
-      - name: GOOGLE_MODEL_NAME
-        value: "gemini-2.0-flash"
-      - name: MONGODB_URI
-        secureValue: "${MONGODB_URI}"
-      - name: databaseName
-        value: "ai_tutor_rag"
-      - name: collectionName
-        value: "ai_agent_checkpoints"
+    # Flask server container
+    - name: flask-server
+      properties:
+        image: aitutoracr.azurecr.io/flask-server:latest
+        resources:
+          requests:
+            cpu: 1.0
+            memoryInGB: 1.5
+        ports:
+          - port: 5001
+        environmentVariables:
+          - name: FLASK_HOST
+            value: "0.0.0.0"
+          - name: FLASK_PORT
+            value: "5001"
+          - name: FLASK_DEBUG
+            value: "True"
+          # For sensitive environment variables, use secureValue
+          - name: GOOGLE_API_KEY
+            secureValue: "${GOOGLE_API_KEY}"
+          - name: GOOGLE_MODEL_NAME
+            value: "gemini-2.0-flash"
+          - name: MONGODB_URI
+            secureValue: "${MONGODB_URI}"
+          - name: databaseName
+            value: "ai_tutor_rag"
+          - name: collectionName
+            value: "ai_agent_checkpoints"
+          - name: USE_MONGODB
+            value: "true"
+          - name: MongoDBVectorStoreDatabaseName
+            value: "ai_tutor_rag_db"
+          - name: MongoDBCollectionName
+            value: "course_materials"
+          - name: LANGCHAIN_ENDPOINT
+            value: "https://api.smith.langchain.com"
+          - name: LANGCHAIN_API_KEY
+            secureValue: "${LANGCHAIN_API_KEY}"
+          - name: LANGCHAIN_PROJECT
+            value: "ai-tutor-rag"
 
-  
-  # React client container
-  - name: react-client
-    properties:
-      image: aitutoracr.azurecr.io/react-client:latest
-      resources:
-        requests:
-          cpu: 0.5
-          memoryInGB: 1.0
-      ports:
-      - port: 80
-      environmentVariables:
-      - name: VITE_DEBUG_MODE
-        value: "false"
+    # React client container
+    - name: react-client
+      properties:
+        image: aitutoracr.azurecr.io/react-client:latest
+        resources:
+          requests:
+            cpu: 0.5
+            memoryInGB: 1.0
+        ports:
+          - port: 80
+        environmentVariables:
+          - name: VITE_DEBUG_MODE
+            value: "false"
 
   imageRegistryCredentials:
-  - server: aitutoracr.azurecr.io
-    username: "${ACR_USERNAME}"
-    password: "${ACR_PASSWORD}"
-  
+    - server: aitutoracr.azurecr.io
+      username: "${ACR_USERNAME}"
+      password: "${ACR_PASSWORD}"
+
   ipAddress:
     type: Public
     dnsNameLabel: ai-tutor-app
     ports:
-    - protocol: TCP
-      port: 80
-    - protocol: TCP
-      port: 5001
-  
+      - protocol: TCP
+        port: 80
+      - protocol: TCP
+        port: 5001
+
   osType: Linux
-  tags: {aitutorapp: container-group}
+  tags: { aitutorapp: container-group }
   type: Microsoft.ContainerInstance/containerGroups
