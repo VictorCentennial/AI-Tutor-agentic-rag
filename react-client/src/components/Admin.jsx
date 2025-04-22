@@ -24,6 +24,7 @@ const AdminDashboard = () => {
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
   const [courseCode, setCourseCode] = useState("");
   const [courseName, setCourseName] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleAddCourse = async () => {
     if (!courseCode || !courseName) {
@@ -76,8 +77,11 @@ const AdminDashboard = () => {
     try {
       const response = await axios.get("/api/get-courses");
       setCourses(response.data.courses);
-      setExpandedCourse(null);
-      setExpandedWeeks({}); // Reset expanded weeks when fetching courses
+      //setExpandedCourse(null);
+      //setExpandedWeeks({}); // Reset expanded weeks when fetching courses
+      if (expandedCourse) {
+        fetchCourseMaterial(expandedCourse);
+      }
       setIsModalOpen(true);
     } catch (error) {
       console.error("Error fetching courses:", error);
@@ -357,22 +361,29 @@ const AdminDashboard = () => {
     };
   
     const handleUploadFile = async (courseName, weekNumber, file) => {
+      if (!file) return;
+      
       try {
+        setIsUploading(true); // Show loading overlay
+        
         const formData = new FormData();
         formData.append("course_name", courseName);
         formData.append("week_number", weekNumber);
         formData.append("file", file);
-  
+
         const response = await axios.post("api/upload-file", formData, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
         });
+        
         alert(response.data.message);
         fetchCourses(); // Refresh the course list
       } catch (error) {
         console.error("Error uploading file:", error);
         alert("Failed to upload file. Please try again.");
+      } finally {
+        setIsUploading(false); // Hide loading overlay when done
       }
     };
   
@@ -429,13 +440,13 @@ const AdminDashboard = () => {
                   <h3>{course}</h3>
                   {expandedCourse === course ? <ChevronUp /> : <ChevronDown />}
                   <div className="icon-container">
-                    <Edit
+                    {/* <Edit
                       className="icon-button"
                       onClick={(e) => {
                         e.stopPropagation(); // Prevent the course from collapsing/expanding
                         handleRename("course", course, prompt("Enter new course name"));
                       }}
-                    />
+                    /> */}
                     <Trash
                       className="icon-button"
                       onClick={(e) => {
@@ -466,13 +477,13 @@ const AdminDashboard = () => {
                           <h4>Week {week}</h4>
                           {expandedWeeks[course]?.[week] ? <ChevronUp /> : <ChevronDown />}
                           <div className="icon-container">
-                            <Edit
+                            {/* <Edit
                               className="icon-button"
                               onClick={(e) => {
                                 e.stopPropagation(); // Prevent the week from collapsing/expanding
                                 handleRename("week", `${course}/${week}`, prompt("Enter new week number"));
                               }}
-                            />
+                            /> */}
                             <Trash
                               className="icon-button"
                               onClick={(e) => {
@@ -489,17 +500,18 @@ const AdminDashboard = () => {
                               const fileName = decodeURIComponent(file.split("/").pop()); // Extract filename from URL
                               return (
                                 <div key={index} className="file-item">
-                                  <a href={file} target="_blank" rel="noopener noreferrer">
+                                  {fileName}
+                                  {/* <a href={file} target="_blank" rel="noopener noreferrer">
                                     {fileName}
-                                  </a>
+                                  </a> */}
                                   <div className="icon-container">
-                                    <Edit
+                                    {/* <Edit
                                       className="icon-button"
                                       onClick={(e) => {
                                         e.stopPropagation(); // Prevent the file list from collapsing/expanding
                                         handleRename("file", `${course}/${week}/${fileName}`, prompt("Enter new file name"));
                                       }}
-                                    />
+                                    /> */}
                                     <Trash
                                       className="icon-button"
                                       onClick={(e) => {
@@ -576,6 +588,12 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
+    {isUploading && (
+      <div className="loading-overlay">
+        <div className="loading-spinner"></div>
+        <div className="loading-text">Uploading File...</div>
+      </div>
+    )}
     </div>
   );
 };
