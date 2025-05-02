@@ -1,5 +1,6 @@
 # import sqlite3
 # from langgraph.checkpoint.sqlite import SqliteSaver
+from typing import Collection
 from dotenv import load_dotenv
 import os
 from aiTutorAgent.AiTutorAgent import AiTutorAgent
@@ -10,6 +11,7 @@ import atexit
 from pymongo.errors import ConnectionFailure
 import logging
 from rag import rag
+from aiTutorAgent.chat_history_mongodb import ChatHistoryMongoDB
 
 logging.getLogger("pymongo").setLevel(logging.INFO)
 
@@ -71,6 +73,11 @@ aiTutorAgent = AiTutorAgent(
     memory=memory,
     vector_store=vector_store,
 )
+
+
+checkpoint_db = mongodb_client[MONGODB_DB]
+checkpoint_collection: Collection = checkpoint_db[MONGODB_COLLECTION]
+chat_history_mongodb = ChatHistoryMongoDB(checkpoint_collection, aiTutorAgent)
 
 
 # Register cleanup function to close MongoDB connection
