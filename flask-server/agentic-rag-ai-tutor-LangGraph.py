@@ -19,7 +19,7 @@ from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import AIMessage, HumanMessage
 from langgraph.types import Command
-from aiTutorAgent import aiTutorAgent, mongodb_client
+from aiTutorAgent import aiTutorAgent, chat_history_mongodb
 from rag import rag
 
 from dotenv import load_dotenv
@@ -36,6 +36,9 @@ load_dotenv()
 
 use_mongodb = os.environ.get("USE_MONGODB", "true").lower() == "true"
 
+
+MONGODB_DB = os.getenv("MONGODB_DB", "ai_tutor_db")
+MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "agent_checkpoints")
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -760,41 +763,55 @@ def day_analysis():
 @app.route("/statistics", methods=["GET"])
 def get_statistics():
     try:
-        # Check if directories exist
-        if not os.path.exists(SESSION_HISTORY_DIR):
-            return (
-                jsonify({"error": f"Directory not found: {SESSION_HISTORY_DIR}"}),
-                500,
-            )
-        if not os.path.exists(COURSE_MATERIAL_DIR):
-            return (
-                jsonify({"error": f"Directory not found: {COURSE_MATERIAL_DIR}"}),
-                500,
-            )
+        total_sessions = 0
+        total_students = 0
+        total_courses = 0
 
-        # Count total number of sessions
-        session_files = [
-            name for name in os.listdir(SESSION_HISTORY_DIR) if name.endswith(".txt")
-        ]
-        total_sessions = len(session_files)
+        if use_mongodb:
+            # Get total number of sessions from MongoDB
+            total_sessions = len(chat_history_mongodb.get_all_threads())
+            total_students = len(chat_history_mongodb.get_all_student_ids())
+            total_courses = len(rag.get_courses_from_structure())
+        else:
+            # Check if directories exist
+            if not os.path.exists(SESSION_HISTORY_DIR):
+                return (
+                    jsonify({"error": f"Directory not found: {SESSION_HISTORY_DIR}"}),
+                    500,
+                )
+            if not os.path.exists(COURSE_MATERIAL_DIR):
+                return (
+                    jsonify({"error": f"Directory not found: {COURSE_MATERIAL_DIR}"}),
+                    500,
+                )
 
-        # Count total number of unique students (safe extraction)
-        student_ids = set()
-        for filename in session_files:
-            parts = filename.split("_")
-            if len(parts) > 3:  # Ensure there are enough parts before accessing index 3
-                student_id = parts[3].split(".")[0]  # Extract student ID
-                student_ids.add(student_id)
+            # Count total number of sessions
+            session_files = [
+                name
+                for name in os.listdir(SESSION_HISTORY_DIR)
+                if name.endswith(".txt")
+            ]
+            total_sessions = len(session_files)
 
-        total_students = len(student_ids)
+            # Count total number of unique students (safe extraction)
+            student_ids = set()
+            for filename in session_files:
+                parts = filename.split("_")
+                if (
+                    len(parts) > 3
+                ):  # Ensure there are enough parts before accessing index 3
+                    student_id = parts[3].split(".")[0]  # Extract student ID
+                    student_ids.add(student_id)
 
-        # Count total number of courses
-        course_dirs = [
-            name
-            for name in os.listdir(COURSE_MATERIAL_DIR)
-            if os.path.isdir(os.path.join(COURSE_MATERIAL_DIR, name))
-        ]
-        total_courses = len(course_dirs)
+            total_students = len(student_ids)
+
+            # Count total number of courses
+            course_dirs = [
+                name
+                for name in os.listdir(COURSE_MATERIAL_DIR)
+                if os.path.isdir(os.path.join(COURSE_MATERIAL_DIR, name))
+            ]
+            total_courses = len(course_dirs)
 
         return jsonify(
             {
@@ -886,61 +903,7 @@ def get_student_chat_history():
         if not student_id:
             return jsonify({"error": "Student ID is required"}), 400
 
-        # These values need to match what was used in __init__.py
-        MONGODB_DB = os.getenv("MONGODB_DB", "ai_tutor_db")
-        MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "agent_checkpoints")
-
-        db = mongodb_client[MONGODB_DB]
-        checkpoints_collection = db[MONGODB_COLLECTION]
-
-        # Get distinct thread_ids from MongoDB
-        thread_ids = checkpoints_collection.distinct("thread_id")
-
-        conversations = []
-
-        # For each thread_id, check if it belongs to this student
-        for thread_id in thread_ids:
-            try:
-                # Create thread config
-                thread_config = {
-                    "configurable": {"thread_id": thread_id, "user_id": str(student_id)}
-                }
-
-                # Try to get state - this will succeed if the thread belongs to this user
-                # Otherwise, it will raise an exception
-                state = aiTutorAgent.graph.get_state(thread_config)
-
-                stored_user_id = state.metadata.get("user_id")
-                # print(f"stored_user_id: {stored_user_id}")
-                # print(f"student_id: {student_id}")
-                if stored_user_id != student_id:
-                    # Skip this thread – it doesn't belong to the given student
-                    continue
-
-                # Extract conversation information
-                messages = state.values.get("messages", [])
-
-                conversation = {
-                    "thread_id": thread_id,
-                    "subject": state.values.get("subject", "Unknown"),
-                    "created_at": state.created_at,
-                    "messages": messages_to_json(messages),
-                    "message_count": len(messages),
-                }
-
-                # Add additional metadata if available
-                if state.metadata:
-                    conversation["step"] = state.metadata.get("step", 0)
-
-                conversations.append(conversation)
-
-            except Exception as e:
-                # This thread doesn't belong to this user
-                logging.debug(f"Thread {thread_id} retrival error: {str(e)}")
-                continue
-
-        # Sort conversations by creation date (newest first)
-        conversations.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        conversations = chat_history_mongodb.get_chat_history(student_id)
 
         return jsonify(
             {
@@ -1211,8 +1174,6 @@ def cleanup_vector_stores():
 
     # Collect all thread_ids from MongoDB
     try:
-        MONGODB_DB = os.getenv("MONGODB_DB", "ai_tutor_db")
-        MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "agent_checkpoints")
 
         db = mongodb_client[MONGODB_DB]
         checkpoints_collection = db[MONGODB_COLLECTION]
