@@ -26,6 +26,61 @@ const AdminDashboard = () => {
   const [courseCode, setCourseCode] = useState("");
   const [courseName, setCourseName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  
+  // New state for dropdown options
+  const [studentIdOptions, setStudentIdOptions] = useState([]);
+  const [courseCodeOptions, setCourseCodeOptions] = useState([]);
+
+  // Fetch student IDs for dropdown
+  const fetchStudentIds = async () => {
+    try {
+      const response = await axios.get("/api/get-all-students-id");
+      // Student IDs come as a simple array
+      if (response.data && Array.isArray(response.data)) {
+        setStudentIdOptions(response.data);
+      } else {
+        console.error("Unexpected response format for student IDs:", response.data);
+        setStudentIdOptions([]); // Set to empty array as fallback
+      }
+    } catch (error) {
+      console.error("Error fetching student IDs:", error);
+      setStudentIdOptions([]); // Set to empty array on error
+    }
+  };
+
+  // Fetch course codes for dropdown
+  const fetchCourseCodes = async () => {
+    try {
+      const response = await axios.get("/api/get-folders");
+      // Response should have a folders array
+      if (response.data && Array.isArray(response.data.folders)) {
+        // Extract course codes (first part before underscore)
+        const courseCodes = response.data.folders
+          .map(folder => {
+            const parts = folder.split("_");
+            return parts.length > 0 ? parts[0] : "";
+          })
+          .filter(code => code !== "") // Remove empty codes
+          .filter((code, index, self) => self.indexOf(code) === index); // Remove duplicates
+        setCourseCodeOptions(courseCodes);
+      } else {
+        console.error("Unexpected response format for folders:", response.data);
+        setCourseCodeOptions([]); // Set to empty array as fallback
+      }
+    } catch (error) {
+      console.error("Error fetching course codes:", error);
+      setCourseCodeOptions([]); // Set to empty array on error
+    }
+  };
+
+  // Fetch dropdown options when analysis type changes
+  useEffect(() => {
+    if (analysisType === "student") {
+      fetchStudentIds();
+    } else if (analysisType === "course") {
+      fetchCourseCodes();
+    }
+  }, [analysisType]);
 
   const handleAddCourse = async () => {
     if (!courseCode || !courseName) {
@@ -126,11 +181,11 @@ const AdminDashboard = () => {
   // Validate inputs for analysis
   const validateInputs = () => {
     if (analysisType === "student" && !filters.student_id) {
-      alert("Please enter a valid Student ID.");
+      alert("Please select a Student ID.");
       return false;
     }
     if (analysisType === "course" && !filters.course_code) {
-      alert("Please enter a valid Course Code.");
+      alert("Please select a Course Code.");
       return false;
     }
     if (analysisType === "day" && !/^\d{8}$/.test(filters.date)) {
@@ -275,34 +330,87 @@ const AdminDashboard = () => {
   const renderAnalysisFilters = () => (
     <div className="filters">
       {analysisType === "student" && (
-        <input
-          type="text"
-          placeholder="Enter Student ID"
-          value={filters.student_id || ""}
-          onChange={(e) => setFilters({ ...filters, student_id: e.target.value })}
-          className="filter-input"
-        />
+        <div className="filter-select-container">
+          <label 
+            htmlFor="student-select" 
+            style={{ marginRight: "10px", display: "inline-block", minWidth: "120px" }}
+          >
+            Select Student ID:
+          </label>
+          <select
+            id="student-select"
+            value={filters.student_id || ""}
+            onChange={(e) => setFilters({ ...filters, student_id: e.target.value })}
+            className="filter-select"
+            style={{ minWidth: "200px" }}
+          >
+            <option value="">-- Select Student ID --</option>
+            {studentIdOptions.map((id) => (
+              <option key={id} value={id}>
+                {id}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
       {analysisType === "course" && (
-        <input
-          type="text"
-          placeholder="Enter Course Code"
-          value={filters.course_code || ""}
-          onChange={(e) => setFilters({ ...filters, course_code: e.target.value })}
-          className="filter-input"
-        />
+        <div className="filter-select-container">
+          <label 
+            htmlFor="course-select"
+            style={{ marginRight: "10px", display: "inline-block", minWidth: "120px" }}
+          >
+            Select Course Code:
+          </label>
+          <select
+            id="course-select"
+            value={filters.course_code || ""}
+            onChange={(e) => setFilters({ ...filters, course_code: e.target.value })}
+            className="filter-select"
+            style={{ minWidth: "200px" }}
+          >
+            <option value="">-- Select Course Code --</option>
+            {courseCodeOptions.map((code) => (
+              <option key={code} value={code}>
+                {code}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
       {analysisType === "day" && (
-        <input
-          type="text"
-          placeholder="Enter Date (YYYYMMDD)"
-          value={filters.date || ""}
-          onChange={(e) => setFilters({ ...filters, date: e.target.value })}
-          className="filter-input"
-        />
+        <div className="filter-select-container">
+          <label 
+            htmlFor="date-input"
+            style={{ marginRight: "10px", display: "inline-block", minWidth: "120px" }}
+          >
+            Select Date:
+          </label>
+          <input
+            id="date-input"
+            type="date"
+            value={filters.formattedDate || ""}
+            onChange={(e) => {
+              // Convert from YYYY-MM-DD to YYYYMMDD format
+              const selectedDate = e.target.value;
+              const formattedForAPI = selectedDate ? selectedDate.replace(/-/g, "") : "";
+              setFilters({ 
+                ...filters, 
+                date: formattedForAPI, 
+                formattedDate: selectedDate 
+              });
+            }}
+            className="filter-input"
+            style={{ minWidth: "200px" }}
+          />
+        </div>
       )}
       {analysisType && (
-        <button className="fetch-button" onClick={fetchAnalysis} disabled={isFetching}>
+        <button 
+          className="fetch-button" 
+          onClick={fetchAnalysis} 
+          disabled={isFetching}
+          style={{ marginTop: "15px" }}
+        >
           {isFetching ? "Fetching..." : "Fetch Analysis"}
         </button>
       )}
