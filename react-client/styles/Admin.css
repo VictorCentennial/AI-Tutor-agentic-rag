@@ -412,3 +412,23 @@ input:focus {
     transform: rotate(360deg);
   }
 }
+
+.loading-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.loading-indicator .loading-spinner {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 0;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #10b981;
+}
+
+.fetch-button:disabled {
+  background-color: #6b7280;
+  cursor: not-allowed;
+}

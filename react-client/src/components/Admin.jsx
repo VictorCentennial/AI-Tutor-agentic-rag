@@ -9,6 +9,7 @@ const AdminDashboard = () => {
   const [analysisType, setAnalysisType] = useState(null);
   const [filters, setFilters] = useState({});
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [isFetching, setIsFetching] = useState(false);
   const [statistics, setStatistics] = useState({
     totalSessions: 0,
     totalStudents: 0,
@@ -144,6 +145,7 @@ const AdminDashboard = () => {
     if (!validateInputs()) return;
 
     try {
+      setIsFetching(true);
       let endpoint = "";
       let payload = {};
 
@@ -173,6 +175,8 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error("Error fetching analysis:", error);
       alert("Failed to fetch analysis. Please try again.");
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -208,7 +212,7 @@ const AdminDashboard = () => {
               <div className="card-content">
                 <div className="visualization-image">
                   <img
-                    src={`http://localhost:5001/static/${src}`}
+                    src={`/api/static/${src}`}
                     alt={key}
                     className="image"
                   />
@@ -298,9 +302,14 @@ const AdminDashboard = () => {
         />
       )}
       {analysisType && (
-        <button className="fetch-button" onClick={fetchAnalysis}>
-          Fetch Analysis
+        <button className="fetch-button" onClick={fetchAnalysis} disabled={isFetching}>
+          {isFetching ? "Fetching..." : "Fetch Analysis"}
         </button>
+      )}
+      {isFetching && (
+        <div className="loading-indicator">
+          <div className="loading-spinner"></div>
+        </div>
       )}
     </div>
   );
