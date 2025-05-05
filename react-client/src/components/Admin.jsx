@@ -508,11 +508,11 @@ const AdminDashboard = () => {
       <div className="course-management">
         <div className="course-management-options">
           <div className="course-management-options-card" onClick={() => setIsAddCourseModalOpen(true)}>
-            <h3>Add a Course</h3>
+            <h3>Add a New Course</h3>
           </div>
-          <div className="course-management-options-card" onClick={fetchCourses}>
+          {/* <div className="course-management-options-card" onClick={fetchCourses}>
             <h3>See existing courses</h3>
-          </div>
+          </div> */}
           <div className="course-management-options-card" onClick={fetchCourses}>
             <h3>Update Content of Existing Course</h3>
           </div>
