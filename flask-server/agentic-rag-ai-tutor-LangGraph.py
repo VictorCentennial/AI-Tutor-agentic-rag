@@ -40,6 +40,11 @@ use_mongodb = os.environ.get("USE_MONGODB", "true").lower() == "true"
 MONGODB_DB = os.getenv("MONGODB_DB", "ai_tutor_db")
 MONGODB_COLLECTION = os.getenv("MONGODB_COLLECTION", "agent_checkpoints")
 
+
+SESSION_HISTORY_DIR = "saved_session_history"
+COURSE_MATERIAL_DIR = "course_material"
+
+
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -522,7 +527,6 @@ def continue_tutoring():
 
 @app.route("/save-session", methods=["POST"])
 def save_session_history():
-    SESSION_HISTORY_DIR = "saved_session_history"
     if not os.path.exists(SESSION_HISTORY_DIR):
         os.makedirs(SESSION_HISTORY_DIR)
 
@@ -589,7 +593,6 @@ def save_session_history():
 
 @app.route("/download-session", methods=["POST"])
 def download_session_history():
-    SESSION_HISTORY_DIR = "saved_session_history"
     try:
         data = request.json
         thread_id = data.get("thread_id")
@@ -641,10 +644,6 @@ def update_duration():
         return jsonify({"error": "Failed to update duration", "details": str(e)}), 500
 
 
-SESSION_HISTORY_DIR = "saved_session_history"
-COURSE_MATERIAL_DIR = "course_material"
-
-
 @app.route("/get-sessions", methods=["POST"])
 def get_sessions():
     try:
@@ -689,9 +688,18 @@ def get_sessions():
 @app.route("/general-analysis", methods=["POST"])
 def general_analysis():
     try:
-        # Perform general analysis (e.g., analyze all sessions)
-        analysis_result = aiTutorAgent.general_analysis()
+
+        conversations = chat_history_mongodb.get_chat_history_all()
+        combined_content = _combine_conversation_messages(conversations)
+        session_data = chat_history_mongodb.get_all_session_data()
+        logging.info(f"combined_content for general analysis: {combined_content}")
+
+        # session_files = _get_all_session_files()
+        # combined_content = _combine_session_files(session_files)
+        # session_data = _get_session_data()
+        analysis_result = aiTutorAgent.general_analysis(combined_content, session_data)
         return jsonify(analysis_result)
+
     except Exception as e:
         logging.error(f"Error in general_analysis: {str(e)}")
         return (
@@ -709,8 +717,17 @@ def student_analysis():
         if not student_id:
             return jsonify({"error": "Student ID is required"}), 400
 
-        # Perform student-specific analysis
-        analysis_result = aiTutorAgent.student_analysis(student_id)
+        conversations = chat_history_mongodb.get_chat_history_by_student_id(student_id)
+        session_data = chat_history_mongodb.get_all_session_data()
+        logging.info(f"conversations for student analysis: {conversations}")
+        combined_content = _combine_conversation_messages(conversations)
+        logging.info(f"combined_content for student analysis: {combined_content}")
+        # session_files = _get_session_files_by_student(student_id)
+        # combined_content = _combine_session_files(session_files)
+
+        analysis_result = aiTutorAgent.student_analysis(
+            student_id, combined_content, session_data
+        )
         return jsonify(analysis_result)
     except Exception as e:
         logging.error(f"Error in student_analysis: {str(e)}")
@@ -729,8 +746,19 @@ def course_analysis():
         if not course_code:
             return jsonify({"error": "Course Code is required"}), 400
 
-        # Perform course-specific analysis
-        analysis_result = aiTutorAgent.course_analysis(course_code)
+        conversations = chat_history_mongodb.get_chat_history_by_course_code(
+            course_code
+        )
+        session_data = chat_history_mongodb.get_all_session_data()
+        combined_content = _combine_conversation_messages(conversations)
+        logging.info(f"combined_content for course analysis: {combined_content}")
+        # else:
+        #     session_files = _get_session_files_by_course(course_code)
+        #     combined_content = _combine_session_files(session_files)
+        #     session_data = _get_session_data()
+        analysis_result = aiTutorAgent.course_analysis(
+            course_code, combined_content, session_data
+        )
         return jsonify(analysis_result)
     except Exception as e:
         logging.error(f"Error in course_analysis: {str(e)}")
@@ -749,8 +777,17 @@ def day_analysis():
         if not date:
             return jsonify({"error": "Date is required"}), 400
 
-        # Perform day-specific analysis
-        analysis_result = aiTutorAgent.day_analysis(date)
+        conversations = chat_history_mongodb.get_chat_history_by_date(date)
+        combined_content = _combine_conversation_messages(conversations)
+        session_data = chat_history_mongodb.get_all_session_data()
+        logging.info(f"combined_content for day analysis: {combined_content}")
+        # else:
+        #     session_files = _get_session_files_by_date(date)
+        #     combined_content = _combine_session_files(session_files)
+        #     session_data = _get_session_data()
+        analysis_result = aiTutorAgent.day_analysis(
+            date, combined_content, session_data
+        )
         return jsonify(analysis_result)
     except Exception as e:
         logging.error(f"Error in day_analysis: {str(e)}")
@@ -758,6 +795,11 @@ def day_analysis():
             jsonify({"error": "Failed to perform day analysis", "details": str(e)}),
             500,
         )
+
+
+@app.route("/get-all-students-id", methods=["GET"])
+def get_all_students_id():
+    return jsonify(chat_history_mongodb.get_all_student_ids())
 
 
 @app.route("/statistics", methods=["GET"])
@@ -903,7 +945,7 @@ def get_student_chat_history():
         if not student_id:
             return jsonify({"error": "Student ID is required"}), 400
 
-        conversations = chat_history_mongodb.get_chat_history(student_id)
+        conversations = chat_history_mongodb.get_chat_history_by_student_id(student_id)
 
         return jsonify(
             {
@@ -1175,11 +1217,8 @@ def cleanup_vector_stores():
     # Collect all thread_ids from MongoDB
     try:
 
-        db = mongodb_client[MONGODB_DB]
-        checkpoints_collection = db[MONGODB_COLLECTION]
-
         # Get existing thread IDs from MongoDB
-        existing_thread_ids = set(checkpoints_collection.distinct("thread_id"))
+        existing_thread_ids = chat_history_mongodb.get_all_threads()
 
         # Find thread IDs that have vector stores but don't exist in MongoDB
         for thread_id in list(app.vector_stores.keys()):
@@ -1211,10 +1250,107 @@ def scheduled_cleanup():
             logging.error(f"Error in scheduled cleanup: {str(e)}")
 
 
+def _get_all_session_files():
+    return [
+        os.path.join(SESSION_HISTORY_DIR, f)
+        for f in os.listdir(SESSION_HISTORY_DIR)
+        if f.endswith(".txt")
+    ]
+
+
+def _get_session_files_by_student(student_id: str):
+    return [
+        os.path.join(SESSION_HISTORY_DIR, f)
+        for f in os.listdir(SESSION_HISTORY_DIR)
+        if f.endswith(f"_{student_id}.txt")
+    ]
+
+
+def _get_session_files_by_course(course_code: str):
+    return [
+        os.path.join(SESSION_HISTORY_DIR, f)
+        for f in os.listdir(SESSION_HISTORY_DIR)
+        if f.split("_")[2] == course_code
+    ]
+
+
+def _get_session_files_by_date(date: str):
+    return [
+        os.path.join(SESSION_HISTORY_DIR, f)
+        for f in os.listdir(SESSION_HISTORY_DIR)
+        if f.startswith(date)
+    ]
+
+
+def _combine_session_files(session_files: list):
+    combined_content = ""
+    for filepath in session_files:
+        try:
+            with open(filepath, "r") as file:
+                combined_content += file.read() + "\n"
+        except Exception as e:
+            logging.error(f"Error reading file {filepath}: {str(e)}")
+    return combined_content
+
+
+def _combine_conversation_messages(conversations: list[dict]) -> str:
+    """
+    Convert a conversation's messages to a single string.
+
+    Args:
+        conversation (dict): A conversation dictionary containing 'messages' key
+
+    Returns:
+        str: A string representation of all messages in the conversation
+    """
+    if not conversations:
+        return ""
+
+    result = ""
+
+    for index, conversation in enumerate(conversations):
+        if (
+            len(conversation["messages"]) < 2
+        ):  # Skip if there is only one conversation (no student response)
+            continue
+
+        result += f"Conversation {index + 1}"
+        for message in conversation["messages"]:
+            role = message.get("role", "unknown")
+            content = message.get("content", "")
+            result += f"[{role.upper()}]: {content}\n\n"
+        result += "\n\n"
+
+    return result
+
+
+def _get_session_data():
+    # Get session data
+    session_data = chat_history_mongodb.get_all_session_data()
+
+    # session_files = _get_all_session_files()
+    # for filepath in session_files:
+    #     filename = os.path.basename(filepath)
+    #     parts = filename.split("_")
+    #     if len(parts) == 4:
+    #         date, time, course_code, student_id = parts
+    #         student_id = student_id.split(".")[0]  # Remove .txt
+    #         session_data.append(
+    #             {
+    #                 "date": date,
+    #                 "time": time,
+    #                 "course_code": course_code,
+    #                 "student_id": student_id,
+    #             }
+    #         )
+    return session_data
+
+
 # Start the cleanup thread
 if not use_mongodb:
     cleanup_thread = threading.Thread(target=scheduled_cleanup, daemon=True)
     cleanup_thread.start()
+
 
 # Run the Flask app
 if __name__ == "__main__":
