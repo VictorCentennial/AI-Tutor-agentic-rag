@@ -1,3 +1,4 @@
+from typing import Dict
 from utils.logging_config import setup_logging
 
 logger = setup_logging()
@@ -161,10 +162,18 @@ def get_folders():
 @app.route("/get-topics", methods=["GET"])
 def get_topics():
     try:
+        course_name = request.args.get("folder")
+        logging.debug(f"Course name: {course_name}")
         if use_mongodb:
-            topics = rag.get_topics()
-            logging.debug(f"Found topics: {topics}")
-            return jsonify({"topics": topics})
+            topics: Dict[int, str] = rag.get_topics(course_name)
+            topics_list = []
+            for week in range(1, TOTAL_WEEKS + 1):
+                if week in topics:
+                    topics_list.append(f"{week}: {topics[week]}")
+                else:
+                    topics_list.append(f"{week}")
+            logging.debug(f"Found topics: {topics_list}")
+            return jsonify({"topics": topics_list})
         else:
             folder_name = request.args.get("folder")
             current_week = request.args.get("current_week")
@@ -1176,6 +1185,24 @@ def upload_file():
     except Exception as e:
         print(f"Error uploading file: {str(e)}")
         return jsonify({"error": "Failed to upload file"}), 500
+
+
+@app.route("/edit-week-topic", methods=["PUT"])
+def edit_week_topic():
+    try:
+        data = request.json
+        course_name = data.get("course_name")
+        week_number = data.get("week_number")
+        topic_name = data.get("topic_name")
+
+        if use_mongodb:
+            result = rag.edit_week_topic(course_name, int(week_number), topic_name)
+            return jsonify({"message": f"Week topic updated successfully"}), 200
+        else:
+            return jsonify({"error": "Only supported for MongoDB"}), 500
+    except Exception as e:
+        print(f"Error editing week topic: {str(e)}")
+        return jsonify({"error": "Failed to edit week topic"}), 500
 
 
 # Function to update access time for a vector store
