@@ -387,12 +387,23 @@ class RAG:
                 "message": "Vector store factory does not have a course structure store"
             }
 
-    def get_topics(self) -> List[str]:
+    def get_topics(self, course_name: str) -> Dict[int, str]:
         """
         Temporary return weeks as topics
         TODO: Implement topics with user defined names
         """
-        return [f"{i}" for i in range(1, self.total_weeks + 1)]
+        if hasattr(self.vector_store_factory, "get_course_structure_store"):
+            structure_store = self.vector_store_factory.get_course_structure_store()
+            print("Vector store factory has a course structure store")
+            topics = {}
+            for week in range(1, self.total_weeks + 1):
+                topic = structure_store.get_week_topic(course_name, week)
+                if topic:
+                    topics[week] = topic
+            return topics
+        else:
+            print("Vector store factory does not have a course structure store")
+            return {}
 
     def delete_course_material(
         self, course_name: str, week: int, file_name: str
@@ -451,3 +462,9 @@ class RAG:
                 "weeks_updated": 0,
                 "files_added": 0,
             }
+
+    def edit_week_topic(self, course_name: str, week: int, topic_name: str) -> bool:
+        """
+        Edit the topic name for a specific week in the course structure store.
+        """
+        return self.vector_store_factory.edit_week_topic(course_name, week, topic_name)

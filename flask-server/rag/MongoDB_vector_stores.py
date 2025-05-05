@@ -333,6 +333,16 @@ class MongoDBVectorStoreFactory(VectorStoreFactory):
         """Get the course structure store instance"""
         return self.course_structure_store
 
+    def edit_week_topic(self, course_name: str, week: int, topic_name: str) -> bool:
+        """Edit the topic name for a specific week in the course structure store."""
+        return self.course_structure_store.edit_week_topic(
+            course_name, week, topic_name
+        )
+
+    def get_week_topic(self, course_name: str, week: int) -> str:
+        """Get the topic name for a specific week in the course structure store."""
+        return self.course_structure_store.get_week_topic(course_name, week)
+
     # Add this method to your class
     def _sanitize_index_name(self, name: str) -> str:
         """

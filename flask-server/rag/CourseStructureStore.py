@@ -325,3 +325,11 @@ class CourseStructureStore:
             {"$set": {f"weeks.{week}": {"topic_name": "", "files": []}}},
         )
         return result.modified_count > 0
+
+    def edit_week_topic(self, course_name: str, week: int, topic_name: str) -> bool:
+        """Edit the topic name for a specific week"""
+        result = self.collection.update_one(
+            {"course_name": course_name},
+            {"$set": {f"weeks.{week}.topic_name": topic_name}},
+        )
+        return result.modified_count > 0
