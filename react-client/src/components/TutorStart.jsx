@@ -88,7 +88,8 @@ function TutorStart({ onStartTutoring, isLoading }) {
   }, [selectedFolder, currentWeek]);
 
   const handleStart = () => {
-    onStartTutoring(selectedFolder, duration, selectedTopic, currentWeek);
+    const selectedWeek = selectedTopic.split(":")[0].trim();
+    onStartTutoring(selectedFolder, duration, selectedWeek, currentWeek);
   };
 
   const handleUpdateVectorStore = async () => {

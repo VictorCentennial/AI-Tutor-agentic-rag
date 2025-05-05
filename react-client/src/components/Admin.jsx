@@ -26,6 +26,7 @@ const AdminDashboard = () => {
   const [courseCode, setCourseCode] = useState("");
   const [courseName, setCourseName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [weekTopics, setWeekTopics] = useState({}); // New state to store week topics
   
   // New state for dropdown options
   const [studentIdOptions, setStudentIdOptions] = useState([]);
@@ -164,9 +165,79 @@ const AdminDashboard = () => {
         },
       }));
       setExpandedCourse(courseName); // Expand the selected course
+      
+      // Fetch topics for this course
+      fetchWeekTopics(courseName);
     } catch (error) {
       console.error("Error fetching course material:", error);
       alert("Failed to fetch course material. Please try again.");
+    }
+  };
+
+  // New function to fetch week topics
+  const fetchWeekTopics = async (courseName) => {
+    try {
+      const response = await axios.get("/api/get-topics", {
+        params: {
+          folder: courseName,
+        },
+      });
+      console.log("Week Topics Response:", response.data);
+      
+      // Process the topics data
+      const topicsMap = {};
+      if (response.data && response.data.topics) {
+        response.data.topics.forEach(topic => {
+          // Parse topics in format "week: topic" or just "week"
+          const match = topic.match(/^(\d+)(?:: (.+))?$/);
+          if (match) {
+            const weekNum = match[1];
+            const topicName = match[2] || "";
+            topicsMap[weekNum] = topicName;
+          }
+        });
+      }
+      
+      setWeekTopics(prev => ({
+        ...prev,
+        [courseName]: topicsMap
+      }));
+    } catch (error) {
+      console.error("Error fetching week topics:", error);
+    }
+  };
+
+  // New function to handle editing week topics
+  const handleEditWeekTopic = async (path, newTopic) => {
+    if (!newTopic) {
+      alert("Please enter a topic name.");
+      return;
+    }
+
+    try {
+      const [course, week] = path.split("/");
+      
+      const response = await axios.put("/api/edit-week-topic", {
+        course_name: course,
+        week_number: week,
+        topic_name: newTopic
+      });
+      
+      if (response.data && response.data.message) {
+        alert(response.data.message);
+        
+        // Update the local state
+        setWeekTopics(prev => ({
+          ...prev,
+          [course]: {
+            ...(prev[course] || {}),
+            [week]: newTopic
+          }
+        }));
+      }
+    } catch (error) {
+      console.error("Error updating week topic:", error);
+      alert("Failed to update week topic. Please try again.");
     }
   };
 
@@ -443,6 +514,7 @@ const AdminDashboard = () => {
   );
 
   const renderCourseManagement = () => {
+
     const handleRename = async (type, oldPath, newName) => {
       if (!newName) {
         alert("Please enter a new name.");
@@ -591,16 +663,21 @@ const AdminDashboard = () => {
                             }));
                           }}
                         >
-                          <h4>Week {week}</h4>
+                          {weekTopics[course]?.[week] ? (
+                            <h4>Week {week}: {weekTopics[course][week]}</h4>
+                          ) : (
+                            <h4>Week {week}</h4>
+                          )}
                           {expandedWeeks[course]?.[week] ? <ChevronUp /> : <ChevronDown />}
                           <div className="icon-container">
-                            {/* <Edit
+                            <Edit
                               className="icon-button"
                               onClick={(e) => {
                                 e.stopPropagation(); // Prevent the week from collapsing/expanding
-                                handleRename("week", `${course}/${week}`, prompt("Enter new week number"));
+                                const newTopic = prompt("Enter topic name for this week:", weekTopics[course]?.[week] || "");
+                                handleEditWeekTopic(`${course}/${week}`, newTopic);
                               }}
-                            /> */}
+                            />
                             <Trash
                               className="icon-button"
                               onClick={(e) => {
