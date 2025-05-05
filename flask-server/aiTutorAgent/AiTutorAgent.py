@@ -483,73 +483,31 @@ class AiTutorAgent:
 
         """
 
-    def general_analysis(self):
-        session_files = self._get_all_session_files()
-        combined_content = self._combine_session_files(session_files)
-        return self._generate_analysis("General Analysis", combined_content)
-
-    def student_analysis(self, student_id: str):
-        session_files = self._get_session_files_by_student(student_id)
-        combined_content = self._combine_session_files(session_files)
+    def general_analysis(self, combined_content: str, session_data: list[dict]):
         return self._generate_analysis(
-            f"Student {student_id} Analysis", combined_content
+            "General Analysis", combined_content, session_data
         )
 
-    def course_analysis(self, course_code: str):
-        session_files = self._get_session_files_by_course(course_code)
-        combined_content = self._combine_session_files(session_files)
+    def student_analysis(
+        self, student_id: str, combined_content: str, session_data: list[dict]
+    ):
         return self._generate_analysis(
-            f"Course {course_code} Analysis", combined_content
+            f"Student {student_id} Analysis", combined_content, session_data
         )
 
-    def day_analysis(self, date: str):
-        session_files = self._get_session_files_by_date(date)
-        combined_content = self._combine_session_files(session_files)
-        return self._generate_analysis(f"Day {date} Analysis", combined_content)
+    def course_analysis(
+        self, course_code: str, combined_content: str, session_data: list[dict]
+    ):
+        return self._generate_analysis(
+            f"Course {course_code} Analysis", combined_content, session_data
+        )
 
-    def _get_all_session_files(self):
-        SESSION_HISTORY_DIR = "saved_session_history"
-        return [
-            os.path.join(SESSION_HISTORY_DIR, f)
-            for f in os.listdir(SESSION_HISTORY_DIR)
-            if f.endswith(".txt")
-        ]
+    def day_analysis(self, date: str, combined_content: str, session_data: list[dict]):
+        return self._generate_analysis(
+            f"Day {date} Analysis", combined_content, session_data
+        )
 
-    def _get_session_files_by_student(self, student_id: str):
-        SESSION_HISTORY_DIR = "saved_session_history"
-        return [
-            os.path.join(SESSION_HISTORY_DIR, f)
-            for f in os.listdir(SESSION_HISTORY_DIR)
-            if f.endswith(f"_{student_id}.txt")
-        ]
-
-    def _get_session_files_by_course(self, course_code: str):
-        SESSION_HISTORY_DIR = "saved_session_history"
-        return [
-            os.path.join(SESSION_HISTORY_DIR, f)
-            for f in os.listdir(SESSION_HISTORY_DIR)
-            if f.split("_")[2] == course_code
-        ]
-
-    def _get_session_files_by_date(self, date: str):
-        SESSION_HISTORY_DIR = "saved_session_history"
-        return [
-            os.path.join(SESSION_HISTORY_DIR, f)
-            for f in os.listdir(SESSION_HISTORY_DIR)
-            if f.startswith(date)
-        ]
-
-    def _combine_session_files(self, session_files: list):
-        combined_content = ""
-        for filepath in session_files:
-            try:
-                with open(filepath, "r") as file:
-                    combined_content += file.read() + "\n"
-            except Exception as e:
-                logging.error(f"Error reading file {filepath}: {str(e)}")
-        return combined_content
-
-    def _generate_analysis(self, title: str, content: str):
+    def _generate_analysis(self, title: str, content: str, session_data: list[dict]):
         # Customize the prompt based on the type of analysis
         if "General Analysis" in title:
             prompt = f"""
@@ -602,15 +560,18 @@ class AiTutorAgent:
                 3. Performance metrics.
             """
 
+        if content == "":
+            return {"summary": "No history available", "visualizations": {}}
+
         # Generate analysis using LLM
         response = self.llm.invoke(prompt)
 
         # Generate visualizations based on session data
-        visualizations = self._generate_visualizations(title)
+        visualizations = self._generate_visualizations(title, session_data)
 
         return {"summary": response.content, "visualizations": visualizations}
 
-    def _generate_visualizations(self, title: str):
+    def _generate_visualizations(self, title: str, session_data: list[dict]):
         try:
             logging.info(f"Generating visualizations for: {title}")
 
@@ -618,24 +579,24 @@ class AiTutorAgent:
             if not os.path.exists("static/visualizations"):
                 os.makedirs("static/visualizations")
 
-            # Get session data
-            session_files = self._get_all_session_files()
-            session_data = []
+            # # Get session data
+            # session_files = self._get_all_session_files()
+            # session_data = []
 
-            for filepath in session_files:
-                filename = os.path.basename(filepath)
-                parts = filename.split("_")
-                if len(parts) == 4:
-                    date, time, course_code, student_id = parts
-                    student_id = student_id.split(".")[0]  # Remove .txt
-                    session_data.append(
-                        {
-                            "date": date,
-                            "time": time,
-                            "course_code": course_code,
-                            "student_id": student_id,
-                        }
-                    )
+            # for filepath in session_files:
+            #     filename = os.path.basename(filepath)
+            #     parts = filename.split("_")
+            #     if len(parts) == 4:
+            #         date, time, course_code, student_id = parts
+            #         student_id = student_id.split(".")[0]  # Remove .txt
+            #         session_data.append(
+            #             {
+            #                 "date": date,
+            #                 "time": time,
+            #                 "course_code": course_code,
+            #                 "student_id": student_id,
+            #             }
+            #         )
 
             # Convert session data to a DataFrame
             df = pd.DataFrame(session_data)
