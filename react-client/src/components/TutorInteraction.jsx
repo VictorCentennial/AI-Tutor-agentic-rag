@@ -175,7 +175,7 @@ function TutorInteraction({
               <div className="card-content">
                 <div className="visualization-image">
                   <img
-                    src={`http://localhost:5000/static/${src}`}
+                    src={`/api/static/${src}`}
                     alt={key}
                     className="img-fluid"
                   />
