@@ -10,6 +10,7 @@ const AdminDashboard = () => {
   const [filters, setFilters] = useState({});
   const [analysisResult, setAnalysisResult] = useState(null);
   const [isFetching, setIsFetching] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
   const [statistics, setStatistics] = useState({
     totalSessions: 0,
     totalStudents: 0,
@@ -107,6 +108,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (currentView !== "analytics") {
       setAnalysisResult(null); // Clear results when leaving analytics view
+      setFetchError(null); // Clear error when leaving analytics view
     }
   }, [currentView]);
 
@@ -246,6 +248,7 @@ const AdminDashboard = () => {
     setAnalysisType(type);
     setFilters({});
     setAnalysisResult(null);
+    setFetchError(null);
     setCurrentView("analytics");
   };
 
@@ -270,8 +273,9 @@ const AdminDashboard = () => {
   const fetchAnalysis = async () => {
     if (!validateInputs()) return;
 
+    setFetchError(null);
+    setIsFetching(true);
     try {
-      setIsFetching(true);
       let endpoint = "";
       let payload = {};
 
@@ -300,7 +304,8 @@ const AdminDashboard = () => {
       console.log(response.data);
     } catch (error) {
       console.error("Error fetching analysis:", error);
-      alert("Failed to fetch analysis. Please try again.");
+      setFetchError(error.response?.data?.error || "Failed to fetch analysis. Please check console for details.");
+      setAnalysisResult(null);
     } finally {
       setIsFetching(false);
     }
@@ -488,6 +493,12 @@ const AdminDashboard = () => {
       {isFetching && (
         <div className="loading-indicator">
           <div className="loading-spinner"></div>
+          <div className="loading-text" style={{ color: "black" }}>Analysis in progress, please wait</div>
+        </div>
+      )}
+      {fetchError && (
+        <div className="error-message" style={{ color: "red", marginTop: "10px" }}>
+          <p>Error: {fetchError}</p>
         </div>
       )}
     </div>
