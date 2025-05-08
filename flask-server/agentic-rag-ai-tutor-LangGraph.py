@@ -378,6 +378,11 @@ def start_tutoring():
     if use_mongodb:
         titles = rag.get_titles_Mongodb(folder_name, weeks_selected_list)
         logging.info(f"Week Selected: {weeks_selected_list}")
+
+        # if no titles are found, consider all weeks
+        if len(titles) == 0:
+            weeks_selected_list = [week for week in range(1, int(current_week) + 1)]
+            titles = rag.get_titles_Mongodb(folder_name, weeks_selected_list)
     else:
         titles = rag.get_titles(topic)
         logging.info(f"Topic Selected: {topic}")
